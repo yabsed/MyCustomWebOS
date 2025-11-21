@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Web OS v17.1 (Task Manager)</title>
+    <title>Web OS v17.2 (Code Studio)</title>
     <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
     <style>
         /* --- 시스템 코어 스타일 --- */
@@ -42,19 +42,20 @@
         
         input, button, textarea { font-family: 'Consolas', 'JetBrains Mono', monospace; outline: none; }
 
-        /* 에디터 하이라이팅 */
-        span[c="token-comment"] { color: #6272a4; font-style: italic; } 
-        span[c="token-string"] { color: #f1fa8c; }
-        span[c="token-keyword"] { color: #ff79c6; font-weight: bold; } 
-        span[c="token-number"] { color: #bd93f9; }
-        span[c="token-func"] { color: #8be9fd; }
+        /* 에디터 하이라이팅 공통 */
+        span[c="token-comment"] { color: #6a9955; font-style: italic; } 
+        span[c="token-string"] { color: #ce9178; }
+        span[c="token-keyword"] { color: #569cd6; font-weight: bold; } 
+        span[c="token-number"] { color: #b5cea8; }
+        span[c="token-func"] { color: #dcdcaa; }
+        span[c="token-var"] { color: #9cdcfe; }
     </style>
 </head>
 <body>
 
     <div class="desktop-icons">
         <div class="icon" ondblclick="OS.exec('/bin/explorer.app')"><span class="icon-img">📁</span>내 컴퓨터</div>
-        <div class="icon" ondblclick="OS.exec('/bin/notepad.app')"><span class="icon-img">📝</span>에디터</div>
+        <div class="icon" ondblclick="OS.exec('/bin/notepad.app')"><span class="icon-img">📝</span>Code Studio</div>
         <div class="icon" ondblclick="OS.exec('/bin/terminal.app')"><span class="icon-img">💻</span>터미널</div>
         <div class="icon" ondblclick="OS.exec('/bin/browser.app')"><span class="icon-img">🌐</span>인터넷</div>
         <div class="icon" ondblclick="OS.exec('/bin/calc.app')"><span class="icon-img">🧮</span>계산기</div>
@@ -68,7 +69,7 @@
 
     <script>
         const FS = {
-            key: 'webos_v17_taskmgr', 
+            key: 'webos_v17_plus', 
             init: () => {
                 if(!localStorage.getItem(FS.key)) {
                     const systemApps = AppsInstaller();
@@ -77,8 +78,8 @@
                         { name: 'bin', type: 'dir', parent: '/', path: '/bin' },
                         { name: 'home', type: 'dir', parent: '/', path: '/home' },
                         { name: 'user', type: 'dir', parent: '/home', path: '/home/user' },
-                        { name: 'welcome.js', type: 'file', parent: '/home/user', path: '/home/user/welcome.js', content: 'console.log("Web OS v17 Update");\nconsole.log("작업 관리자가 추가되었습니다!");' },
-                        { name: 'test.py', type: 'file', parent: '/home/user', path: '/home/user/test.py', content: 'print("🐍 Python works!")' },
+                        { name: 'welcome.js', type: 'file', parent: '/home/user', path: '/home/user/welcome.js', content: '// Welcome to Code Studio!\n// Try opening multiple tabs.\n// Ctrl+F to search.\n\nconsole.log("Web OS v17 Update");' },
+                        { name: 'hello.py', type: 'file', parent: '/home/user', path: '/home/user/hello.py', content: 'def greet(name):\n    print(f"Hello, {name}!")\n\ngreet("User")' },
                         ...systemApps
                     ];
                     FS.save(defaults);
@@ -121,17 +122,7 @@
                     printCallback('🐍 Python 실행 중...', 'info');
                     try { const py = await OS.loadPython(); py.setStdout({ batched: (msg) => printCallback(msg) }); await py.runPythonAsync(code); } catch (e) { printCallback(e.message, 'err'); }
                 }
-                else if (['bf', 'brainfuck'].includes(normLang)) {
-                    /* Brainfuck Logic */
-                    let m=Array(30000).fill(0),p=0,out='',loop=[],c;
-                    for(let i=0;i<code.length;i++){
-                        c=code[i];if(c=='>')p++;if(c=='<')p--;if(c=='+')m[p]++;if(c=='-')m[p]--;if(c=='.')out+=String.fromCharCode(m[p]);
-                        if(c=='['){if(!m[p]){let n=1;while(n){i++;if(code[i]=='[')n++;if(code[i]==']')n--;}}else loop.push(i);}
-                        if(c==']'){if(m[p])i=loop[loop.length-1];else loop.pop();}
-                    }
-                    printCallback(out);
-                }
-                else printCallback(`Unknown Language: ${lang}`, 'err');
+                else printCallback(`지원하지 않는 언어: ${lang}`, 'err');
             },
             exec: (path, args = {}) => {
                 const file = FS.getItem(path);
@@ -166,10 +157,11 @@
                     document.body.appendChild(win);
                     OS.wm.addTaskbar(pid, appData.config.title);
 
+                    // 프로세스 등록
+                    OS.processes[pid] = { path, title: appData.config.title, state: 'running' };
+
                     try {
                         const appLogic = new Function('pid', 'args', 'FS', 'OS', 'document', 'window', finalScript);
-                        // path와 title도 프로세스 정보에 저장
-                        OS.processes[pid] = { path, title: appData.config.title, state: 'running' };
                         setTimeout(() => { try { appLogic(pid, args, FS, OS, document, window); } catch(e) { alert(`오류: ${e.message}`); } }, 10);
                     } catch(e) { alert(`로딩 실패: ${e.message}`); }
 
@@ -222,30 +214,356 @@
                     <div id="out-__PID__" class="term-out"><div class="cmd-line"><span class="dr-purple">WebOS v17 Kernel</span> initialized...</div><div class="cmd-line">Type <span class="dr-green">'help'</span> to see commands.</div><br></div>
                     <div class="term-input-area"><span id="pmt-__PID__" class="prompt"></span><input id="in-__PID__" class="term-input" autocomplete="off" spellcheck="false"></div>
                 </div>`,
-                `const out=document.getElementById('out-'+pid);const inp=document.getElementById('in-'+pid);const pmt=document.getElementById('pmt-'+pid);let cwd='/home/user';const print=(t,type='normal')=>{const d=document.createElement('div');d.className='cmd-line';if(type==='err')d.style.color='#ff5555';else if(type==='info')d.style.color='#8be9fd';else d.style.color='#f8f8f2';d.textContent=t;out.appendChild(d);out.scrollTop=out.scrollHeight;};const updatePmt=()=>{pmt.innerHTML='<span class="dr-green">user</span>@<span class="dr-pink">webos</span>:<span class="dr-cyan">'+cwd.replace('/home/user','~')+'</span>$';};updatePmt();inp.onkeydown=(e)=>{if(e.key==='Enter'){const v=inp.value.trim();const cmdLine=document.createElement('div');cmdLine.className='cmd-line';cmdLine.innerHTML='<span class="dr-green">user</span>@<span class="dr-pink">webos</span>:<span class="dr-cyan">'+cwd.replace('/home/user','~')+'</span>$ '+v;out.appendChild(cmdLine);inp.value='';if(!v){out.scrollTop=out.scrollHeight;return;}if(v.startsWith('echo')&&v.includes('>')){const parts=v.split('>');const content=parts[0].replace(/^echo\\s+/,'').replace(/['"]/g,'').trim();const target=parts[1].trim();if(target){FS.write(FS.resolve(cwd,target),'file',content);return;}}const args=v.split(' ');const cmd=args.shift();if(cmd==='ls'){const items=FS.ls(args[0]?FS.resolve(cwd,args[0]):cwd);const html=items.map(f=>f.type==='dir'?'<span class="dr-cyan" style="font-weight:bold">'+f.name+'/</span>':'<span style="color:#f8f8f2">'+f.name+'</span>').join('&nbsp;&nbsp;');const d=document.createElement('div');d.className='cmd-line';d.innerHTML=html;out.appendChild(d);out.scrollTop=out.scrollHeight;}else if(cmd==='pwd')print(cwd);else if(cmd==='cd'){const t=FS.resolve(cwd,args[0]||'/home/user');if(FS.getItem(t)?.type==='dir'){cwd=t;updatePmt();}else print('No such directory','err');}else if(cmd==='mkdir'){if(args[0]){FS.write(FS.resolve(cwd,args[0]),'dir');}else print('Usage: mkdir [name]','err');}else if(cmd==='rm'){if(args[0])FS.write(FS.resolve(cwd,args[0]),'delete');else print('Usage: rm [file]','err');}else if(cmd==='touch'){if(args[0]){const target=FS.resolve(cwd,args[0]);if(!FS.getItem(target)){FS.write(target,'file','');}}else{print('Usage: touch [file]','err');}}else if(cmd==='cat'){const f=FS.getItem(FS.resolve(cwd,args[0]));if(f)print(f.content);else print('File not found','err');}else if(cmd==='clear'){out.innerHTML='';}else if(cmd==='help'){print('Commands: ls, cd, pwd, touch, mkdir, rm, cat, cp, mv, echo, clear, nano','info');print('Runtime: node [file], python [file], bf [file]','info');}else if(cmd==='nano'){let p=args[0]?FS.resolve(cwd,args[0]):null;let f=FS.getItem(p)||{path:p,content:'',name:args[0]};OS.exec('/bin/notepad.app',{file:f});}else if(cmd==='python'||cmd==='py'){const f=FS.getItem(FS.resolve(cwd,args[0]));if(f)OS.runCode('python',f.content,(msg,type)=>print(msg,type));else print('File not found','err');}else if(cmd==='node'||cmd==='js'){const f=FS.getItem(FS.resolve(cwd,args[0]));if(f)OS.runCode('js',f.content,(msg,type)=>print(msg,type));else print('File not found','err');}else if(cmd==='bf'){const f=FS.getItem(FS.resolve(cwd,args[0]));if(f)OS.runCode('bf',f.content,(msg)=>print(msg));else print('File not found','err');}else if(cmd==='cp'){if(!args[0]||!args[1])return print('Usage: cp [src] [dest]','err');const s=FS.getItem(FS.resolve(cwd,args[0]));if(s)FS.write(FS.resolve(cwd,args[1]),s.type,s.content);else print('Source not found','err');}else if(cmd==='mv'){if(!args[0]||!args[1])return print('Usage: mv [src] [dest]','err');const sp=FS.resolve(cwd,args[0]);const s=FS.getItem(sp);if(s){FS.write(FS.resolve(cwd,args[1]),s.type,s.content);FS.write(sp,'delete');}else print('Source not found','err');}else if(cmd==='echo'){print(v.replace(/^echo\\s+/,'').replace(/['"]/g,''));}else print('Command not found: '+cmd,'err');out.scrollTop=out.scrollHeight;}};`
+                `const out=document.getElementById('out-'+pid);const inp=document.getElementById('in-'+pid);const pmt=document.getElementById('pmt-'+pid);let cwd='/home/user';const print=(t,type='normal')=>{const d=document.createElement('div');d.className='cmd-line';if(type==='err')d.style.color='#ff5555';else if(type==='info')d.style.color='#8be9fd';else d.style.color='#f8f8f2';d.textContent=t;out.appendChild(d);out.scrollTop=out.scrollHeight;};const updatePmt=()=>{pmt.innerHTML='<span class="dr-green">user</span>@<span class="dr-pink">webos</span>:<span class="dr-cyan">'+cwd.replace('/home/user','~')+'</span>$';};updatePmt();inp.onkeydown=(e)=>{if(e.key==='Enter'){const v=inp.value.trim();const cmdLine=document.createElement('div');cmdLine.className='cmd-line';cmdLine.innerHTML='<span class="dr-green">user</span>@<span class="dr-pink">webos</span>:<span class="dr-cyan">'+cwd.replace('/home/user','~')+'</span>$ '+v;out.appendChild(cmdLine);inp.value='';if(!v){out.scrollTop=out.scrollHeight;return;}if(v.startsWith('echo')&&v.includes('>')){const parts=v.split('>');const content=parts[0].replace(/^echo\\s+/,'').replace(/['"]/g,'').trim();const target=parts[1].trim();if(target){FS.write(FS.resolve(cwd,target),'file',content);return;}}const args=v.split(' ');const cmd=args.shift();if(cmd==='ls'){const items=FS.ls(args[0]?FS.resolve(cwd,args[0]):cwd);const html=items.map(f=>f.type==='dir'?'<span class="dr-cyan" style="font-weight:bold">'+f.name+'/</span>':'<span style="color:#f8f8f2">'+f.name+'</span>').join('&nbsp;&nbsp;');const d=document.createElement('div');d.className='cmd-line';d.innerHTML=html;out.appendChild(d);out.scrollTop=out.scrollHeight;}else if(cmd==='pwd')print(cwd);else if(cmd==='cd'){const t=FS.resolve(cwd,args[0]||'/home/user');if(FS.getItem(t)?.type==='dir'){cwd=t;updatePmt();}else print('No such directory','err');}else if(cmd==='mkdir'){if(args[0]){FS.write(FS.resolve(cwd,args[0]),'dir');}else print('Usage: mkdir [name]','err');}else if(cmd==='rm'){if(args[0])FS.write(FS.resolve(cwd,args[0]),'delete');else print('Usage: rm [file]','err');}else if(cmd==='touch'){if(args[0]){const target=FS.resolve(cwd,args[0]);if(!FS.getItem(target)){FS.write(target,'file','');}}else{print('Usage: touch [file]','err');}}else if(cmd==='cat'){const f=FS.getItem(FS.resolve(cwd,args[0]));if(f)print(f.content);else print('File not found','err');}else if(cmd==='clear'){out.innerHTML='';}else if(cmd==='help'){print('Commands: ls, cd, pwd, touch, mkdir, rm, cat, cp, mv, echo, clear, nano','info');print('Runtime: node [file], python [file]','info');}else if(cmd==='nano'){let p=args[0]?FS.resolve(cwd,args[0]):null;let f=FS.getItem(p)||{path:p,content:'',name:args[0]};OS.exec('/bin/notepad.app',{file:f});}else if(cmd==='python'||cmd==='py'){const f=FS.getItem(FS.resolve(cwd,args[0]));if(f)OS.runCode('python',f.content,(msg,type)=>print(msg,type));else print('File not found','err');}else if(cmd==='node'||cmd==='js'){const f=FS.getItem(FS.resolve(cwd,args[0]));if(f)OS.runCode('js',f.content,(msg,type)=>print(msg,type));else print('File not found','err');}else if(cmd==='echo'){print(v.replace(/^echo\\s+/,'').replace(/['"]/g,''));}else print('Command not found: '+cmd,'err');out.scrollTop=out.scrollHeight;}};`
             );
 
-            add('notepad', { title: 'Code Editor', icon: '📝', width: 600, height: 450, bg:'#1e1e1e' },
+            // --------------------------------------------------------------------------------
+            // [UPGRADE] Code Studio (Advanced Text Editor)
+            // --------------------------------------------------------------------------------
+            add('notepad', { title: 'Code Studio', icon: '📝', width: 700, height: 500, bg:'#1e1e1e' },
                 `<style>
-                    .ne-layout { display: flex; flex-direction: column; height: 100%; position: relative; }
-                    .ne-toolbar { display: flex; gap: 8px; background: #252526; padding: 6px 10px; border-bottom: 1px solid #333; z-index: 10; }
-                    .ne-btn { background: #333; border: 1px solid #444; color: #eee; cursor: pointer; padding: 4px 10px; font-size: 12px; border-radius: 4px; transition:0.2s; }
-                    .ne-btn:hover { background: #444; }
-                    .ne-run { color: #50fa7b; border-color: #2e5c3d; } .ne-run:hover { background: #2e5c3d; }
-                    .ne-body { flex-grow: 1; display: flex; position: relative; overflow: hidden; }
-                    .line-numbers { width: 45px; background: #1e1e1e; color: #555; text-align: right; padding: 10px 10px 10px 0; font-family: 'Consolas', monospace; font-size: 14px; line-height: 1.5; border-right: 1px solid #333; box-sizing: border-box; overflow: hidden; }
-                    .editor-stack { flex-grow: 1; position: relative; overflow: hidden; background: #1e1e1e; }
-                    .code-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; margin: 0; padding: 10px; padding-bottom: 50px; border: none; box-sizing: border-box; font-family: 'Consolas', monospace; font-size: 14px; line-height: 1.5; white-space: pre !important; overflow: auto; tab-size: 4; }
-                    #highlight-__PID__ { color: #d4d4d4; z-index: 1; pointer-events: none; }
-                    #input-__PID__ { color: transparent; background: transparent; z-index: 2; caret-color: white; outline: none; resize: none; }
-                    .ne-status { background: #007acc; color: white; font-size: 11px; padding: 3px 10px; z-index: 10; display:flex; justify-content:space-between;}
+                    .cs-root { display: flex; flex-direction: column; height: 100%; position: relative; color: #ccc; font-size: 13px; }
+                    
+                    /* Menu Bar */
+                    .cs-menu { display: flex; gap: 4px; background: #2d2d2d; padding: 4px 8px; border-bottom: 1px solid #3e3e42; }
+                    .cs-menu-item { padding: 4px 8px; cursor: pointer; border-radius: 3px; font-size: 12px; }
+                    .cs-menu-item:hover { background: #505050; color: white; }
+                    .cs-menu-spacer { flex-grow: 1; }
+                    .cs-run-btn { color: #89d185; display: flex; align-items: center; gap: 4px; font-weight: bold; }
+                    .cs-run-btn:hover { background: #2e5c3d; }
+
+                    /* Tab Bar */
+                    .cs-tabs { display: flex; background: #252526; overflow-x: auto; height: 35px; align-items: flex-end; }
+                    .cs-tab { padding: 8px 12px; background: #2d2d2d; border-right: 1px solid #1e1e1e; color: #969696; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 12px; min-width: 80px; user-select: none; border-top: 1px solid transparent; }
+                    .cs-tab.active { background: #1e1e1e; color: #fff; border-top: 1px solid #007acc; font-weight: 500; }
+                    .cs-tab:hover:not(.active) { background: #2a2d2e; }
+                    .cs-tab-close { width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; opacity: 0; transition: 0.1s; }
+                    .cs-tab:hover .cs-tab-close { opacity: 1; }
+                    .cs-tab-close:hover { background: #444; color: white; }
+                    .cs-tab-mod { width: 8px; height: 8px; border-radius: 50%; background: white; display: none; }
+                    .cs-tab.modified .cs-tab-close { display: none; }
+                    .cs-tab.modified:hover .cs-tab-close { display: flex; }
+                    .cs-tab.modified:hover .cs-tab-mod { display: none; }
+                    .cs-tab.modified .cs-tab-mod { display: block; }
+
+                    /* Editor Area */
+                    .cs-body { flex-grow: 1; display: flex; position: relative; overflow: hidden; background: #1e1e1e; }
+                    .cs-gutter { width: 45px; background: #1e1e1e; color: #858585; text-align: right; padding: 10px 10px 10px 0; font-family: 'Consolas', monospace; font-size: 14px; line-height: 1.5; border-right: 1px solid #333; box-sizing: border-box; overflow: hidden; user-select: none; }
+                    .cs-editor-stack { flex-grow: 1; position: relative; overflow: hidden; }
+                    .cs-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; margin: 0; padding: 10px; border: none; box-sizing: border-box; font-family: 'Consolas', monospace; font-size: 14px; line-height: 1.5; white-space: pre !important; overflow: auto; tab-size: 4; }
+                    #hl-__PID__ { color: #d4d4d4; z-index: 1; pointer-events: none; }
+                    #in-__PID__ { color: transparent; background: transparent; z-index: 2; caret-color: white; outline: none; resize: none; }
+                    
+                    /* Find Box */
+                    .cs-find-box { position: absolute; top: 10px; right: 20px; background: #252526; border: 1px solid #454545; padding: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); z-index: 50; display: none; border-radius: 4px; gap: 4px; align-items: center; }
+                    .cs-find-input { background: #3c3c3c; border: 1px solid #3c3c3c; color: #ccc; padding: 4px; font-size: 12px; width: 150px; outline: none; }
+                    .cs-find-input:focus { border-color: #007acc; }
+                    .cs-find-btn { background: transparent; border: none; color: #ccc; cursor: pointer; padding: 2px 6px; border-radius: 2px; }
+                    .cs-find-btn:hover { background: #444; }
+
+                    /* Status Bar */
+                    .cs-status { background: #007acc; color: white; font-size: 11px; padding: 2px 10px; display: flex; justify-content: space-between; align-items: center; height: 22px; }
+                    .cs-status-item { margin-left: 15px; display: flex; align-items: center; gap: 5px; cursor: pointer; }
+                    .cs-status-item:hover { background: rgba(255,255,255,0.2); }
                 </style>
-                <div class="ne-layout">
-                    <div class="ne-toolbar"><button class="ne-btn" onclick="window['neSave___PID__']()">💾 Save</button><button class="ne-btn ne-run" onclick="window['neRun___PID__']()">▶ Run</button></div>
-                    <div class="ne-body"><div id="lines-__PID__" class="line-numbers">1</div><div class="editor-stack"><pre id="highlight-__PID__" class="code-layer"></pre><textarea id="input-__PID__" class="code-layer" spellcheck="false" oninput="window['neUpdate___PID__']()" onscroll="window['neScroll___PID__']()" onkeydown="window['neKey___PID__'](event)"></textarea></div></div>
-                    <div class="ne-status"><span id="path-__PID__">Untitled</span><span>JavaScript</span></div>
+
+                <div class="cs-root">
+                    <div class="cs-menu">
+                        <div class="cs-menu-item" onclick="window['csMenu___PID__']('new')">New</div>
+                        <div class="cs-menu-item" onclick="window['csMenu___PID__']('open')">Open...</div>
+                        <div class="cs-menu-item" onclick="window['csMenu___PID__']('save')">Save</div>
+                        <div class="cs-menu-item" onclick="window['csMenu___PID__']('find')">Find</div>
+                        <div class="cs-menu-item" onclick="window['csMenu___PID__']('font+')">Zoom In</div>
+                        <div class="cs-menu-item" onclick="window['csMenu___PID__']('font-')">Zoom Out</div>
+                        <div class="cs-menu-spacer"></div>
+                        <div class="cs-menu-item cs-run-btn" onclick="window['csRun___PID__']()">▶ Run</div>
+                    </div>
+                    
+                    <div class="cs-tabs" id="tabs-__PID__"></div>
+
+                    <div class="cs-body">
+                        <div id="lines-__PID__" class="cs-gutter">1</div>
+                        <div class="cs-editor-stack">
+                            <pre id="hl-__PID__" class="cs-layer"></pre>
+                            <textarea id="in-__PID__" class="cs-layer" spellcheck="false" 
+                                oninput="window['csUpd___PID__']()" 
+                                onscroll="window['csScr___PID__']()" 
+                                onkeydown="window['csKey___PID__'](event)"
+                                onclick="window['csCur___PID__']()"
+                                onkeyup="window['csCur___PID__']()"
+                            ></textarea>
+                        </div>
+                        
+                        <div id="find-__PID__" class="cs-find-box">
+                            <span style="font-size:16px; transform:rotate(90deg); cursor:move;">⋮</span>
+                            <input id="f-in-__PID__" class="cs-find-input" placeholder="Find" onkeydown="if(event.key==='Enter') window['csFindNext___PID__']()">
+                            <input id="r-in-__PID__" class="cs-find-input" placeholder="Replace" style="width:100px;">
+                            <button class="cs-find-btn" onclick="window['csFindNext___PID__']()" title="Find Next">⬇</button>
+                            <button class="cs-find-btn" onclick="window['csReplace___PID__']()" title="Replace">R</button>
+                            <button class="cs-find-btn" onclick="document.getElementById('find-__PID__').style.display='none'">✕</button>
+                        </div>
+                    </div>
+
+                    <div class="cs-status">
+                        <span id="st-path-__PID__">Untitled</span>
+                        <div style="display:flex;">
+                            <span id="st-cur-__PID__" class="cs-status-item">Ln 1, Col 1</span>
+                            <span id="st-lang-__PID__" class="cs-status-item">Plain Text</span>
+                            <span class="cs-status-item">UTF-8</span>
+                        </div>
+                    </div>
                 </div>`,
-                `const input=document.getElementById('input-'+pid);const highlight=document.getElementById('highlight-'+pid);const lines=document.getElementById('lines-'+pid);const pathDisplay=document.getElementById('path-'+pid);let currentPath=args.file?args.file.path:null;if(args.file){input.value=args.file.content;currentPath=args.file.path;pathDisplay.innerText=currentPath;}const escapeHTML=(text)=>text.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");const updateAll=()=>{let code=input.value;code=escapeHTML(code);code=code.replace(/(\\/\\/.*)/g,'<span c="token-comment">$1</span>');code=code.replace(/(".*?"|'.*?')/g,'<span c="token-string">$1</span>');const keywords='const|let|var|if|else|for|while|function|return|new|try|catch|console|alert|document|window|import|from|def|print|class|self';code=code.replace(new RegExp('\\\\b('+keywords+')\\\\b','g'),'<span c="token-keyword">$1</span>');code=code.replace(/\\b(\\d+)\\b/g,'<span c="token-number">$1</span>');code=code.replace(/(\\w+)(?=\\()/g,'<span c="token-func">$1</span>');if(code.endsWith('\\n'))code+=' ';highlight.innerHTML=code;const lineCount=input.value.split('\\n').length;lines.innerHTML=Array(lineCount).fill(0).map((_,i)=>i+1).join('<br>');};window['neScroll_'+pid]=()=>{highlight.scrollTop=input.scrollTop;highlight.scrollLeft=input.scrollLeft;lines.scrollTop=input.scrollTop;};window['neKey_'+pid]=(e)=>{if(e.key==='Tab'){e.preventDefault();const s=input.selectionStart;input.value=input.value.substring(0,s)+'    '+input.value.substring(input.selectionEnd);input.selectionStart=input.selectionEnd=s+4;updateAll();}};window['neSave_'+pid]=()=>{if(!currentPath){const p=prompt('저장 경로:');if(!p)return;currentPath=p;}FS.write(currentPath,'file',input.value);pathDisplay.innerText=currentPath;alert('Saved: '+currentPath);};window['neRun_'+pid]=async()=>{let ext='js';if(currentPath&&currentPath.includes('.'))ext=currentPath.split('.').pop();let logs="";await OS.runCode(ext,input.value,(msg)=>{console.log(msg);logs+=msg+"\\n";});if(logs)alert("Output:\\n"+logs);else if(ext==='py')alert("Python script executed successfully (no output)");};window['neUpdate_'+pid]=updateAll;updateAll();`
+                `
+                // --- Variables ---
+                const input = document.getElementById('in-'+pid);
+                const hl = document.getElementById('hl-'+pid);
+                const gutter = document.getElementById('lines-'+pid);
+                const tabsDiv = document.getElementById('tabs-'+pid);
+                const stPath = document.getElementById('st-path-'+pid);
+                const stLang = document.getElementById('st-lang-'+pid);
+                const stCur = document.getElementById('st-cur-'+pid);
+                const findBox = document.getElementById('find-'+pid);
+                const findInput = document.getElementById('f-in-'+pid);
+                const repInput = document.getElementById('r-in-'+pid);
+
+                let tabs = [];
+                let activeIndex = -1;
+                let fontSize = 14;
+
+                // --- Core Functions ---
+                const escapeHTML = (text) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+                const updateHighlight = () => {
+                    let code = input.value;
+                    const originalCode = code;
+                    code = escapeHTML(code);
+                    
+                    // Simple Regex Syntax Highlighter
+                    code = code.replace(/(\\/\\/.*)/g, '<span c="token-comment">$1</span>'); // Comments
+                    code = code.replace(/(".*?"|'.*?')/g, '<span c="token-string">$1</span>'); // Strings
+                    
+                    const keywords = 'const|let|var|if|else|for|while|function|return|new|try|catch|console|alert|document|window|import|from|def|print|class|self|async|await';
+                    code = code.replace(new RegExp('\\\\b('+keywords+')\\\\b','g'), '<span c="token-keyword">$1</span>');
+                    
+                    code = code.replace(/\\b(\\d+)\\b/g, '<span c="token-number">$1</span>');
+                    code = code.replace(/(\\w+)(?=\\()/g, '<span c="token-func">$1</span>');
+
+                    if(code.endsWith('\\n')) code += ' '; 
+                    hl.innerHTML = code;
+
+                    // Update Line Numbers
+                    const lineCount = originalCode.split('\\n').length;
+                    gutter.innerHTML = Array(lineCount).fill(0).map((_,i)=>i+1).join('<br>');
+                    
+                    // Update Tab State
+                    if(activeIndex >= 0) {
+                        tabs[activeIndex].content = originalCode;
+                        tabs[activeIndex].modified = true;
+                        renderTabs();
+                    }
+                };
+
+                // --- Tab Management ---
+                const renderTabs = () => {
+                    tabsDiv.innerHTML = '';
+                    tabs.forEach((tab, idx) => {
+                        const el = document.createElement('div');
+                        el.className = 'cs-tab' + (idx === activeIndex ? ' active' : '') + (tab.modified ? ' modified' : '');
+                        el.innerHTML = \`
+                            <span>\${tab.name}</span>
+                            <div class="cs-tab-mod"></div>
+                            <div class="cs-tab-close" onclick="window['csTabClose_\${pid}'](event, \${idx})">✕</div>
+                        \`;
+                        el.onclick = (e) => {
+                            if(!e.target.classList.contains('cs-tab-close')) switchTab(idx);
+                        };
+                        tabsDiv.appendChild(el);
+                    });
+                };
+
+                const switchTab = (idx) => {
+                    if(idx < 0 || idx >= tabs.length) return;
+                    activeIndex = idx;
+                    input.value = tabs[idx].content;
+                    stPath.innerText = tabs[idx].path || 'Untitled';
+                    
+                    // Detect Lang
+                    let ext = 'txt';
+                    if(tabs[idx].name.includes('.')) ext = tabs[idx].name.split('.').pop();
+                    if(ext==='js') stLang.innerText='JavaScript';
+                    else if(ext==='py') stLang.innerText='Python';
+                    else if(ext==='html') stLang.innerText='HTML';
+                    else stLang.innerText='Plain Text';
+
+                    updateHighlight();
+                    renderTabs();
+                    window['csCur_'+pid](); // update status bar
+                };
+
+                const newTab = (file = null) => {
+                    const tab = {
+                        name: file ? file.name : 'Untitled ' + (tabs.length + 1),
+                        path: file ? file.path : null,
+                        content: file ? file.content : '',
+                        modified: false
+                    };
+                    tabs.push(tab);
+                    switchTab(tabs.length - 1);
+                };
+
+                window['csTabClose_'+pid] = (e, idx) => {
+                    e.stopPropagation();
+                    if(tabs[idx].modified) {
+                        if(!confirm(tabs[idx].name + ' has unsaved changes. Close anyway?')) return;
+                    }
+                    tabs.splice(idx, 1);
+                    if(tabs.length === 0) newTab();
+                    else if(activeIndex >= idx) switchTab(Math.max(0, activeIndex - 1));
+                    else renderTabs();
+                };
+
+                // --- Events ---
+                window['csUpd_'+pid] = updateHighlight;
+                
+                window['csScr_'+pid] = () => {
+                    hl.scrollTop = input.scrollTop;
+                    hl.scrollLeft = input.scrollLeft;
+                    gutter.scrollTop = input.scrollTop;
+                };
+
+                window['csKey_'+pid] = (e) => {
+                    // Shortcuts
+                    if(e.ctrlKey && e.key === 's') { e.preventDefault(); window['csMenu_'+pid]('save'); return; }
+                    if(e.ctrlKey && e.key === 'f') { e.preventDefault(); window['csMenu_'+pid]('find'); return; }
+
+                    // Tab Indent
+                    if(e.key === 'Tab') {
+                        e.preventDefault();
+                        const start = input.selectionStart;
+                        const end = input.selectionEnd;
+                        input.value = input.value.substring(0, start) + '    ' + input.value.substring(end);
+                        input.selectionStart = input.selectionEnd = start + 4;
+                        updateHighlight();
+                    }
+                };
+
+                window['csCur_'+pid] = () => {
+                    const val = input.value;
+                    const sel = input.selectionStart;
+                    const lines = val.substring(0, sel).split('\\n');
+                    const row = lines.length;
+                    const col = lines[lines.length - 1].length + 1;
+                    stCur.innerText = 'Ln ' + row + ', Col ' + col;
+                };
+
+                // --- Menu Actions ---
+                window['csMenu_'+pid] = (action) => {
+                    if(action === 'new') newTab();
+                    
+                    if(action === 'open') {
+                        const p = prompt('Open file path:', '/home/user/');
+                        if(p) {
+                            const f = FS.getItem(p);
+                            if(f && f.type !== 'dir') newTab(f);
+                            else alert('File not found');
+                        }
+                    }
+
+                    if(action === 'save') {
+                        const tab = tabs[activeIndex];
+                        let p = tab.path;
+                        if(!p) {
+                            p = prompt('Save as path:', '/home/user/' + tab.name);
+                            if(!p) return;
+                            // Check extension
+                            if(!p.includes('.')) p += '.txt';
+                        }
+                        FS.write(p, 'file', input.value);
+                        tab.path = p;
+                        tab.name = p.split('/').pop();
+                        tab.content = input.value;
+                        tab.modified = false;
+                        stPath.innerText = p;
+                        renderTabs();
+                        alert('Saved!');
+                    }
+
+                    if(action === 'find') {
+                        findBox.style.display = 'flex';
+                        findInput.focus();
+                    }
+
+                    if(action === 'font+') {
+                        fontSize += 2;
+                        input.style.fontSize = fontSize + 'px';
+                        hl.style.fontSize = fontSize + 'px';
+                        gutter.style.fontSize = fontSize + 'px';
+                    }
+                    if(action === 'font-') {
+                        fontSize = Math.max(10, fontSize - 2);
+                        input.style.fontSize = fontSize + 'px';
+                        hl.style.fontSize = fontSize + 'px';
+                        gutter.style.fontSize = fontSize + 'px';
+                    }
+                };
+
+                // --- Search Logic ---
+                window['csFindNext_'+pid] = () => {
+                    const term = findInput.value;
+                    if(!term) return;
+                    const content = input.value;
+                    const startPos = input.selectionEnd;
+                    let idx = content.indexOf(term, startPos);
+                    if(idx === -1) idx = content.indexOf(term, 0); // Loop around
+                    
+                    if(idx !== -1) {
+                        input.focus();
+                        input.setSelectionRange(idx, idx + term.length);
+                        // Scroll to view
+                        const lineHeight = fontSize * 1.5;
+                        const lineNum = content.substring(0, idx).split('\\n').length;
+                        input.scrollTop = (lineNum - 5) * lineHeight;
+                    } else {
+                        alert('Not found: ' + term);
+                    }
+                };
+
+                window['csReplace_'+pid] = () => {
+                    const term = findInput.value;
+                    const rep = repInput.value;
+                    if(!term) return;
+                    if(input.selectionStart !== input.selectionEnd) {
+                        const selected = input.value.substring(input.selectionStart, input.selectionEnd);
+                        if(selected === term) {
+                            document.execCommand('insertText', false, rep);
+                            window['csFindNext_'+pid]();
+                        } else {
+                            window['csFindNext_'+pid]();
+                        }
+                    } else {
+                        window['csFindNext_'+pid]();
+                    }
+                };
+
+                window['csRun_'+pid] = async () => {
+                   const tab = tabs[activeIndex];
+                   let code = input.value;
+                   let ext = 'js';
+                   if(tab.name.includes('.')) ext = tab.name.split('.').pop();
+                   
+                   let logs = "";
+                   await OS.runCode(ext, code, (msg, type) => {
+                       console.log(msg);
+                       logs += (type==='err'?'[ERR] ':'') + msg + "\\n";
+                   });
+                   if(logs) alert("Output:\\n" + logs);
+                   else if(ext==='py') alert("Python script executed (Check console/terminal for output if any)");
+                };
+
+                // Init
+                if(args.file) newTab(args.file);
+                else newTab();
+                `
             );
 
             add('explorer', { title: 'File Explorer', icon: '📁', width: 700, height: 500, bg:'#1e1e1e' }, 
@@ -266,8 +584,6 @@
                     .fx-icon { font-size: 32px; margin-bottom: 8px; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.3)); }
                     .fx-name { font-size: 12px; text-align: center; word-break: break-word; line-height: 1.3; color: #ddd; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;}
                     .fx-status { height: 24px; background: #007acc; display: flex; align-items: center; padding: 0 10px; font-size: 11px; color: white; border-top: 1px solid #005a9e; }
-                    
-                    /* Context Menu Style */
                     .ctx-menu { position: fixed; background: #252526; border: 1px solid #454545; box-shadow: 2px 2px 10px rgba(0,0,0,0.5); z-index: 10000; min-width: 160px; border-radius: 4px; display: none; flex-direction: column; padding: 4px 0; }
                     .ctx-item { padding: 6px 12px; cursor: pointer; font-size: 13px; color: #e0e0e0; display: flex; align-items: center; gap: 10px; }
                     .ctx-item:hover { background: #094771; color: white; }
@@ -300,261 +616,41 @@
                     const p = document.getElementById('p-'+pid);
                     l.innerHTML = '';
                     p.value = cwd;
-                    
                     const files = FS.ls(cwd);
                     s.innerText = files.length + ' items';
-
-                    if(files.length === 0) {
-                        l.innerHTML = '<div style="width:100%; text-align:center; color:#555; margin-top:50px;">Folder is empty</div>';
-                        return;
-                    }
-
+                    if(files.length === 0) { l.innerHTML = '<div style="width:100%; text-align:center; color:#555; margin-top:50px;">Folder is empty</div>'; return; }
                     files.forEach(f => {
-                        const div = document.createElement('div');
-                        div.className = 'fx-item';
-                        
+                        const div = document.createElement('div'); div.className = 'fx-item';
                         let icon = '📄';
                         if (f.type === 'dir') icon = '📁';
                         else if (f.name.endsWith('.js')) icon = '📜';
                         else if (f.name.endsWith('.py')) icon = '🐍';
                         else if (f.name.endsWith('.app')) icon = '📦';
-                        else if (f.name.endsWith('.png') || f.name.endsWith('.jpg')) icon = '🖼️';
-                        
                         div.innerHTML = '<div class="fx-icon">' + icon + '</div><div class="fx-name">' + f.name + '</div>';
-                        
-                        div.onclick = (e) => {
-                            e.stopPropagation();
-                            window['closeCtx_'+pid]();
-                            document.querySelectorAll('#l-'+pid+' .fx-item').forEach(e => e.classList.remove('selected'));
-                            div.classList.add('selected');
-                            s.innerText = 'Selected: ' + f.name;
-                        };
-                        
-                        div.ondblclick = () => {
-                            if (f.type === 'dir') { cwd = f.path; render(); }
-                            else if (f.name.endsWith('.app')) OS.exec(f.path);
-                            else OS.exec('/bin/notepad.app', { file: f });
-                        };
-
-                        div.oncontextmenu = (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            showMenu(e.clientX, e.clientY, f);
-                        };
-                        
+                        div.onclick = (e) => { e.stopPropagation(); window['closeCtx_'+pid](); document.querySelectorAll('#l-'+pid+' .fx-item').forEach(e => e.classList.remove('selected')); div.classList.add('selected'); s.innerText = 'Selected: ' + f.name; };
+                        div.ondblclick = () => { if (f.type === 'dir') { cwd = f.path; render(); } else if (f.name.endsWith('.app')) OS.exec(f.path); else OS.exec('/bin/notepad.app', { file: f }); };
+                        div.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); showMenu(e.clientX, e.clientY, f); };
                         l.appendChild(div);
                     });
                 };
-
-                // Context Menu Logic
                 const showMenu = (x, y, file) => {
-                    cm.style.display = 'flex';
-                    cm.style.left = x + 'px';
-                    cm.style.top = y + 'px';
-                    
-                    if (file) {
-                        // File Context
-                        cm.innerHTML = \`
-                            <div class="ctx-item" onclick="window['op___PID__']('\${file.path}', '\${file.type}')">📂 Open</div>
-                            <div class="ctx-item" onclick="window['rn___PID__']('\${file.path}')">✏️ Rename</div>
-                            <div class="ctx-sep"></div>
-                            <div class="ctx-item" onclick="window['del___PID__']('\${file.path}')">🗑️ Delete</div>
-                            <div class="ctx-item" onclick="alert('Type: \${file.type}\\nPath: \${file.path}')">ℹ️ Properties</div>
-                        \`;
-                    } else {
-                        // Background Context
-                        cm.innerHTML = \`
-                            <div class="ctx-item" onclick="window['nf___PID__']('dir')">📁 New Folder</div>
-                            <div class="ctx-item" onclick="window['nf___PID__']('file')">📄 New File</div>
-                            <div class="ctx-sep"></div>
-                            <div class="ctx-item" onclick="window['ref___PID__']()">🔄 Refresh</div>
-                        \`;
-                    }
+                    cm.style.display = 'flex'; cm.style.left = x + 'px'; cm.style.top = y + 'px';
+                    if (file) { cm.innerHTML = \`<div class="ctx-item" onclick="window['op___PID__']('\${file.path}', '\${file.type}')">📂 Open</div><div class="ctx-item" onclick="window['rn___PID__']('\${file.path}')">✏️ Rename</div><div class="ctx-sep"></div><div class="ctx-item" onclick="window['del___PID__']('\${file.path}')">🗑️ Delete</div>\`; } 
+                    else { cm.innerHTML = \`<div class="ctx-item" onclick="window['nf___PID__']('dir')">📁 New Folder</div><div class="ctx-item" onclick="window['nf___PID__']('file')">📄 New File</div><div class="ctx-sep"></div><div class="ctx-item" onclick="window['ref___PID__']()">🔄 Refresh</div>\`; }
                 };
-
-                window['ctxBg_'+pid] = (e) => {
-                    e.preventDefault();
-                    showMenu(e.clientX, e.clientY, null);
-                };
-
-                window['closeCtx_'+pid] = () => {
-                    cm.style.display = 'none';
-                };
-
-                // Actions
-                window['op_'+pid] = (path, type) => {
-                    const f = FS.getItem(path);
-                    if(type==='dir') { cwd = path; render(); }
-                    else if(path.endsWith('.app')) OS.exec(path);
-                    else OS.exec('/bin/notepad.app', { file: f });
-                };
-
-                window['rn_'+pid] = (oldPath) => {
-                    const file = FS.getItem(oldPath);
-                    const newName = prompt("New name:", file.name);
-                    if(newName && newName !== file.name) {
-                        const newPath = file.parent === '/' ? '/' + newName : file.parent + '/' + newName;
-                        if(FS.getItem(newPath)) return alert("Name already exists!");
-                        FS.write(newPath, file.type, file.content);
-                        if(file.type === 'dir') {
-                           const children = FS.ls(oldPath);
-                           children.forEach(c => {
-                               const cName = c.name;
-                               const cNewPath = newPath + '/' + cName;
-                               FS.write(cNewPath, c.type, c.content);
-                               FS.write(c.path, 'delete');
-                           });
-                        }
-                        FS.write(oldPath, 'delete');
-                        render();
-                    }
-                };
-
-                window['del_'+pid] = (path) => {
-                    if(confirm("Delete " + path + "?")) {
-                        FS.write(path, 'delete');
-                        FS.get().filter(f => f.parent === path).forEach(c => FS.write(c.path, 'delete'));
-                        render();
-                    }
-                };
-
-                window['nf_'+pid] = (type) => {
-                    const name = prompt(type === 'dir' ? "Folder Name:" : "File Name:");
-                    if(name) {
-                        const path = cwd === '/' ? '/' + name : cwd + '/' + name;
-                        FS.write(path, type, "");
-                        render();
-                    }
-                };
-
-                window['nav_'+pid] = (path) => { cwd = path; render(); };
-                window['up_'+pid] = () => { cwd = FS.resolve(cwd, '..'); render(); };
-                window['ref_'+pid] = render;
-                
-                render();`
+                window['ctxBg_'+pid] = (e) => { e.preventDefault(); showMenu(e.clientX, e.clientY, null); };
+                window['closeCtx_'+pid] = () => { cm.style.display = 'none'; };
+                window['op_'+pid] = (path, type) => { const f = FS.getItem(path); if(type==='dir') { cwd = path; render(); } else if(path.endsWith('.app')) OS.exec(path); else OS.exec('/bin/notepad.app', { file: f }); };
+                window['rn_'+pid] = (oldPath) => { const file = FS.getItem(oldPath); const newName = prompt("New name:", file.name); if(newName && newName !== file.name) { const newPath = file.parent === '/' ? '/' + newName : file.parent + '/' + newName; if(FS.getItem(newPath)) return alert("Name already exists!"); FS.write(newPath, file.type, file.content); FS.write(oldPath, 'delete'); render(); } };
+                window['del_'+pid] = (path) => { if(confirm("Delete " + path + "?")) { FS.write(path, 'delete'); render(); } };
+                window['nf_'+pid] = (type) => { const name = prompt(type === 'dir' ? "Folder Name:" : "File Name:"); if(name) { const path = cwd === '/' ? '/' + name : cwd + '/' + name; FS.write(path, type, ""); render(); } };
+                window['nav_'+pid] = (path) => { cwd = path; render(); }; window['up_'+pid] = () => { cwd = FS.resolve(cwd, '..'); render(); }; window['ref_'+pid] = render; render();`
             );
 
             add('calc', { title: 'Calc', icon: '🧮', width: 260, height: 380, bg:'#202020' }, `<style>.cl-layout{display:flex;flex-direction:column;height:100%;padding:10px;}.cl-screen{width:100%;height:60px;background:#333;color:white;border:none;text-align:right;font-size:28px;margin-bottom:10px;border-radius:6px;padding:5px;}.cl-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;flex-grow:1;}button{background:#3a3a3a;color:white;border:none;border-radius:6px;font-size:18px;cursor:pointer;transition:0.1s;}button:hover{filter:brightness(1.2);}button:active{transform:scale(0.95);}.op{background:#ff9f0a;}.ac{background:#ff453a;}</style><div class="cl-layout"><input id="d-__PID__" class="cl-screen" value="0" readonly><div class="cl-grid"><button class="ac" onclick="window['c___PID__']('C')">C</button><button class="op" onclick="window['c___PID__']('/')">/</button><button class="op" onclick="window['c___PID__']('*')">×</button><button class="op" onclick="window['c___PID__']('-')">-</button><button onclick="window['c___PID__']('7')">7</button><button onclick="window['c___PID__']('8')">8</button><button onclick="window['c___PID__']('9')">9</button><button class="op" onclick="window['c___PID__']('+')">+</button><button onclick="window['c___PID__']('4')">4</button><button onclick="window['c___PID__']('5')">5</button><button onclick="window['c___PID__']('6')">6</button><button class="op" onclick="window['c___PID__']('=')" style="grid-row:span 2">=</button><button onclick="window['c___PID__']('1')">1</button><button onclick="window['c___PID__']('2')">2</button><button onclick="window['c___PID__']('3')">3</button><button onclick="window['c___PID__']('0')" style="grid-column:span 2">0</button><button onclick="window['c___PID__']('.')">.</button></div></div>`,`const d=document.getElementById('d-'+pid);window['c_'+pid]=v=>{if(v=='C')d.value='0';else if(v=='=')try{d.value=eval(d.value)}catch{d.value='E'}else d.value=d.value=='0'?v:d.value+v}`);
             add('browser', { title: 'Internet', icon: '🌐', width: 800, height: 550 }, `<div style="display:flex;flex-direction:column;height:100%;"><div style="padding:8px;background:#333;display:flex;gap:8px;"><input id="u-__PID__" value="https://ko.m.wikipedia.org" style="flex-grow:1;background:#222;color:white;border:none;padding:5px;border-radius:4px;"><button onclick="document.getElementById('f-__PID__').src=document.getElementById('u-__PID__').value" style="background:#007acc;color:white;border:none;padding:5px 10px;border-radius:4px;cursor:pointer;">Go</button></div><iframe id="f-__PID__" src="https://ko.m.wikipedia.org" style="flex-grow:1;border:none;background:white;"></iframe></div>`, ``);
             add('2048', { title: '2048', icon: '🎮', width: 360, height: 480, bg: '#202020' }, `<style>.g2048-container{display:flex;flex-direction:column;height:100%;padding:20px;align-items:center;user-select:none;outline:none;}.g2048-header{display:flex;justify-content:space-between;width:100%;margin-bottom:15px;align-items:center;}.g2048-score-box{background:#bbada0;color:#eee4da;padding:5px 15px;border-radius:6px;font-weight:bold;text-align:center;}.g2048-score-label{font-size:11px;color:#eee4da99;display:block;}.g2048-grid{display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(4,1fr);gap:10px;background:#bbada0;padding:10px;border-radius:6px;width:280px;height:280px;box-sizing:border-box;position:relative;}.g2048-cell{background:#cdc1b4;border-radius:3px;width:100%;height:100%;display:flex;justify-content:center;align-items:center;font-size:24px;font-weight:bold;color:#776e65;transition:0.1s;}.t-2{background:#eee4da;}.t-4{background:#ede0c8;}.t-8{background:#f2b179;color:#f9f6f2;}.t-16{background:#f59563;color:#f9f6f2;}.t-32{background:#f67c5f;color:#f9f6f2;}.t-64{background:#f65e3b;color:#f9f6f2;}.t-128{background:#edcf72;color:#f9f6f2;font-size:20px;}.t-256{background:#edcc61;color:#f9f6f2;font-size:20px;}.t-512{background:#edc850;color:#f9f6f2;font-size:20px;}.t-1024{background:#edc53f;color:#f9f6f2;font-size:16px;}.t-2048{background:#edc22e;color:#f9f6f2;font-size:16px;}.g2048-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(238,228,218,0.73);display:none;flex-direction:column;align-items:center;justify-content:center;border-radius:6px;z-index:10;color:#776e65;font-weight:bold;font-size:30px;}.g2048-btn{margin-top:10px;background:#8f7a66;color:#f9f6f2;border:none;padding:10px 20px;border-radius:3px;font-size:16px;cursor:pointer;}.g2048-btn:hover{background:#776e65;}</style><div id="game-__PID__" class="g2048-container" tabindex="0"><div class="g2048-header"><div style="font-size:30px;font-weight:bold;color:#776e65;background:#eee4da;padding:0 10px;border-radius:4px;">2048</div><div class="g2048-score-box"><span class="g2048-score-label">SCORE</span><span id="score-__PID__">0</span></div></div><div class="g2048-grid" id="grid-__PID__"><div class="g2048-overlay" id="over-__PID__"><span id="msg-__PID__">Game Over!</span><button class="g2048-btn" onclick="window['rst___PID__']()">Try Again</button></div></div><div style="margin-top:15px;color:#888;font-size:12px;">Use Arrow Keys or WASD</div></div>`,`const gridDiv=document.getElementById('grid-'+pid);const scoreSpan=document.getElementById('score-'+pid);const overlay=document.getElementById('over-'+pid);const msg=document.getElementById('msg-'+pid);const container=document.getElementById('game-'+pid);let board=[];let score=0;let size=4;function init(){board=Array(size*size).fill(0);score=0;scoreSpan.innerText='0';overlay.style.display='none';const ov=overlay.outerHTML;gridDiv.innerHTML='';for(let i=0;i<16;i++){let c=document.createElement('div');c.className='g2048-cell';c.id='c-'+pid+'-'+i;gridDiv.appendChild(c);}gridDiv.insertAdjacentHTML('beforeend',ov);const newOver=document.getElementById('over-'+pid);const newBtn=newOver.querySelector('button');newBtn.onclick=window['rst_'+pid];addRandom();addRandom();draw();container.focus();}function draw(){for(let i=0;i<16;i++){const cell=document.getElementById('c-'+pid+'-'+i);const val=board[i];cell.innerText=val===0?'':val;cell.className='g2048-cell'+(val>0?' t-'+val:'');}scoreSpan.innerText=score;document.getElementById('over-'+pid).style.display='none';}function addRandom(){let empty=[];board.forEach((v,i)=>{if(v===0)empty.push(i);});if(empty.length===0)return;const idx=empty[Math.floor(Math.random()*empty.length)];board[idx]=Math.random()<0.9?2:4;}function operate(row){let arr=row.filter(val=>val);for(let i=0;i<arr.length-1;i++){if(arr[i]===arr[i+1]){arr[i]*=2;score+=arr[i];arr.splice(i+1,1);}}while(arr.length<size)arr.push(0);return arr;}function move(dir){let oldBoardStr=JSON.stringify(board);if(dir==='Left'){for(let i=0;i<4;i++){let row=[board[i*4],board[i*4+1],board[i*4+2],board[i*4+3]];let newRow=operate(row);for(let j=0;j<4;j++)board[i*4+j]=newRow[j];}}else if(dir==='Right'){for(let i=0;i<4;i++){let row=[board[i*4],board[i*4+1],board[i*4+2],board[i*4+3]];row.reverse();let newRow=operate(row);newRow.reverse();for(let j=0;j<4;j++)board[i*4+j]=newRow[j];}}else if(dir==='Up'){for(let i=0;i<4;i++){let col=[board[i],board[i+4],board[i+8],board[i+12]];let newCol=operate(col);for(let j=0;j<4;j++)board[i+j*4]=newCol[j];}}else if(dir==='Down'){for(let i=0;i<4;i++){let col=[board[i],board[i+4],board[i+8],board[i+12]];col.reverse();let newCol=operate(col);newCol.reverse();for(let j=0;j<4;j++)board[i+j*4]=newCol[j];}}if(JSON.stringify(board)!==oldBoardStr){addRandom();draw();checkGameOver();}}function checkGameOver(){if(!board.includes(0)){for(let i=0;i<16;i++){const val=board[i];if(i%4!==3&&val===board[i+1])return;if(i<12&&val===board[i+4])return;}document.getElementById('msg-'+pid).innerText="Game Over";document.getElementById('over-'+pid).style.display='flex';}}window['rst_'+pid]=init;container.onkeydown=(e)=>{if(['ArrowLeft','a'].includes(e.key))move('Left');else if(['ArrowRight','d'].includes(e.key))move('Right');else if(['ArrowUp','w'].includes(e.key))move('Up');else if(['ArrowDown','s'].includes(e.key))move('Down');};init();`);
-
-            // [추가] Task Manager (작업 관리자)
-            add('taskmgr', { title: 'Task Manager', icon: '📊', width: 450, height: 500, bg:'#202020' }, 
-            `<style>
-                .tm-layout { display: flex; flex-direction: column; height: 100%; font-size: 12px; color: #ddd; }
-                .tm-toolbar { padding: 8px; background: #333; border-bottom: 1px solid #444; display: flex; justify-content: flex-end; gap: 10px; }
-                .tm-btn { background: #444; border: 1px solid #555; color: white; padding: 4px 12px; cursor: pointer; border-radius: 3px; }
-                .tm-btn:hover { background: #555; }
-                .tm-btn-kill { background: #8b0000; border-color: #a00000; }
-                .tm-btn-kill:hover { background: #a00000; }
-                .tm-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-                
-                .tm-header { display: flex; background: #2d2d2d; padding: 5px 10px; font-weight: bold; color: #aaa; border-bottom: 1px solid #444; }
-                .tm-row { display: flex; padding: 5px 10px; cursor: pointer; border-bottom: 1px solid #2a2a2a; align-items: center; }
-                .tm-row:hover { background: #2a2d2e; }
-                .tm-row.selected { background: #007acc !important; color: white; }
-                
-                .col-pid { width: 60px; flex-shrink: 0; }
-                .col-name { flex-grow: 1; font-weight: 500; display:flex; align-items:center; gap:6px;}
-                .col-mem { width: 60px; text-align: right; }
-                .col-cpu { width: 50px; text-align: right; color: #4ec9b0; }
-                
-                .tm-list { flex-grow: 1; overflow-y: auto; background: #1e1e1e; }
-                .tm-footer { padding: 6px 10px; background: #252526; border-top: 1px solid #333; text-align: right; color: #888; font-size: 11px; }
-            </style>
-            <div class="tm-layout">
-                <div class="tm-toolbar">
-                    <button class="tm-btn" onclick="window['ref___PID__']()">Refresh</button>
-                    <button id="btn-kill-__PID__" class="tm-btn tm-btn-kill" onclick="window['kill___PID__']()" disabled>End Task</button>
-                </div>
-                <div class="tm-header">
-                    <div class="col-name">Process Name</div>
-                    <div class="col-pid">PID</div>
-                    <div class="col-cpu">CPU</div>
-                    <div class="col-mem">Mem</div>
-                </div>
-                <div id="list-__PID__" class="tm-list"></div>
-                <div class="tm-footer" id="stat-__PID__">Processes: 0</div>
-            </div>`, 
-            `
-            let selectedPid = null;
-            const list = document.getElementById('list-'+pid);
-            const stat = document.getElementById('stat-'+pid);
-            const killBtn = document.getElementById('btn-kill-'+pid);
-
-            const render = () => {
-                const scrollPos = list.scrollTop;
-                list.innerHTML = '';
-                const procs = Object.entries(OS.processes);
-                stat.innerText = 'Processes: ' + procs.length;
-
-                let selectedExists = false;
-
-                procs.forEach(([procId, data]) => {
-                    const row = document.createElement('div');
-                    row.className = 'tm-row';
-                    if(procId === selectedPid) {
-                        row.classList.add('selected');
-                        selectedExists = true;
-                    }
-                    
-                    // Random Fake Stats
-                    const cpu = (Math.random() * (procId === pid ? 1 : 5)).toFixed(1);
-                    const mem = Math.floor(Math.random() * 50 + 20) + ' MB';
-                    
-                    // 아이콘 찾기 (config에 있으면 좋지만, 여기선 path로 추측)
-                    let icon = '⚙️';
-                    if(data.title) {
-                        if(data.title.includes('Terminal')) icon='💻';
-                        else if(data.title.includes('Editor')) icon='📝';
-                        else if(data.title.includes('Explorer')) icon='📁';
-                        else if(data.title.includes('Internet')) icon='🌐';
-                        else if(data.title.includes('2048')) icon='🎮';
-                        else if(data.title.includes('Calc')) icon='🧮';
-                        else if(data.title.includes('Task')) icon='📊';
-                    }
-
-                    row.innerHTML = \`
-                        <div class="col-name"><span>\${icon}</span> \${data.title || 'Unknown'}</div>
-                        <div class="col-pid">\${procId.replace('proc_','')}</div>
-                        <div class="col-cpu">\${cpu}%</div>
-                        <div class="col-mem">\${mem}</div>
-                    \`;
-
-                    row.onclick = () => {
-                        document.querySelectorAll('#list-'+pid+' .tm-row').forEach(r => r.classList.remove('selected'));
-                        row.classList.add('selected');
-                        selectedPid = procId;
-                        killBtn.disabled = false;
-                    };
-
-                    list.appendChild(row);
-                });
-                
-                if(!selectedExists) {
-                    selectedPid = null;
-                    killBtn.disabled = true;
-                }
-                
-                list.scrollTop = scrollPos;
-            };
-
-            window['ref_'+pid] = render;
-            
-            window['kill_'+pid] = () => {
-                if(selectedPid && OS.processes[selectedPid]) {
-                    OS.kill(selectedPid);
-                    render();
-                }
-            };
-
-            const interval = setInterval(render, 1500);
-            
-            // 창 닫힐 때 인터벌 제거 (메모리 누수 방지용 훅이 없으므로 간단히 처리)
-            // 실제로는 OS.kill 함수 내에서 해당 PID의 모든 타이머를 정리하는 로직이 필요함.
-            
-            render();
-            `);
+            add('taskmgr', { title: 'Task Manager', icon: '📊', width: 450, height: 500, bg:'#202020' }, `<style>.tm-layout { display: flex; flex-direction: column; height: 100%; font-size: 12px; color: #ddd; } .tm-toolbar { padding: 8px; background: #333; border-bottom: 1px solid #444; display: flex; justify-content: flex-end; gap: 10px; } .tm-btn { background: #444; border: 1px solid #555; color: white; padding: 4px 12px; cursor: pointer; border-radius: 3px; } .tm-btn:hover { background: #555; } .tm-btn-kill { background: #8b0000; border-color: #a00000; } .tm-btn-kill:hover { background: #a00000; } .tm-btn:disabled { opacity: 0.5; cursor: not-allowed; } .tm-header { display: flex; background: #2d2d2d; padding: 5px 10px; font-weight: bold; color: #aaa; border-bottom: 1px solid #444; } .tm-row { display: flex; padding: 5px 10px; cursor: pointer; border-bottom: 1px solid #2a2a2a; align-items: center; } .tm-row:hover { background: #2a2d2e; } .tm-row.selected { background: #007acc !important; color: white; } .col-pid { width: 60px; flex-shrink: 0; } .col-name { flex-grow: 1; font-weight: 500; display:flex; align-items:center; gap:6px;} .col-mem { width: 60px; text-align: right; } .col-cpu { width: 50px; text-align: right; color: #4ec9b0; } .tm-list { flex-grow: 1; overflow-y: auto; background: #1e1e1e; } .tm-footer { padding: 6px 10px; background: #252526; border-top: 1px solid #333; text-align: right; color: #888; font-size: 11px; }</style><div class="tm-layout"><div class="tm-toolbar"><button class="tm-btn" onclick="window['ref___PID__']()">Refresh</button><button id="btn-kill-__PID__" class="tm-btn tm-btn-kill" onclick="window['kill___PID__']()" disabled>End Task</button></div><div class="tm-header"><div class="col-name">Process Name</div><div class="col-pid">PID</div><div class="col-cpu">CPU</div><div class="col-mem">Mem</div></div><div id="list-__PID__" class="tm-list"></div><div class="tm-footer" id="stat-__PID__">Processes: 0</div></div>`, `let selectedPid = null; const list = document.getElementById('list-'+pid); const stat = document.getElementById('stat-'+pid); const killBtn = document.getElementById('btn-kill-'+pid); const render = () => { const scrollPos = list.scrollTop; list.innerHTML = ''; const procs = Object.entries(OS.processes); stat.innerText = 'Processes: ' + procs.length; let selectedExists = false; procs.forEach(([procId, data]) => { const row = document.createElement('div'); row.className = 'tm-row'; if(procId === selectedPid) { row.classList.add('selected'); selectedExists = true; } const cpu = (Math.random() * (procId === pid ? 1 : 5)).toFixed(1); const mem = Math.floor(Math.random() * 50 + 20) + ' MB'; let icon = '⚙️'; if(data.title) { if(data.title.includes('Terminal')) icon='💻'; else if(data.title.includes('Editor') || data.title.includes('Studio')) icon='📝'; else if(data.title.includes('Explorer')) icon='📁'; else if(data.title.includes('Internet')) icon='🌐'; else if(data.title.includes('2048')) icon='🎮'; else if(data.title.includes('Calc')) icon='🧮'; else if(data.title.includes('Task')) icon='📊'; } row.innerHTML = \`<div class="col-name"><span>\${icon}</span> \${data.title || 'Unknown'}</div><div class="col-pid">\${procId.replace('proc_','')}</div><div class="col-cpu">\${cpu}%</div><div class="col-mem">\${mem}</div>\`; row.onclick = () => { document.querySelectorAll('#list-'+pid+' .tm-row').forEach(r => r.classList.remove('selected')); row.classList.add('selected'); selectedPid = procId; killBtn.disabled = false; }; list.appendChild(row); }); if(!selectedExists) { selectedPid = null; killBtn.disabled = true; } list.scrollTop = scrollPos; }; window['ref_'+pid] = render; window['kill_'+pid] = () => { if(selectedPid && OS.processes[selectedPid]) { OS.kill(selectedPid); render(); } }; setInterval(render, 1500); render();`);
 
             return apps;
         }
