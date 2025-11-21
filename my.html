@@ -69,7 +69,7 @@
 
     <script>
         const FS = {
-            key: 'webos_v17_plus', 
+            key: 'webos_v18', 
             init: () => {
                 if(!localStorage.getItem(FS.key)) {
                     const systemApps = AppsInstaller();
@@ -214,7 +214,58 @@
                     <div id="out-__PID__" class="term-out"><div class="cmd-line"><span class="dr-purple">WebOS v17 Kernel</span> initialized...</div><div class="cmd-line">Type <span class="dr-green">'help'</span> to see commands.</div><br></div>
                     <div class="term-input-area"><span id="pmt-__PID__" class="prompt"></span><input id="in-__PID__" class="term-input" autocomplete="off" spellcheck="false"></div>
                 </div>`,
-                `const out=document.getElementById('out-'+pid);const inp=document.getElementById('in-'+pid);const pmt=document.getElementById('pmt-'+pid);let cwd='/home/user';const print=(t,type='normal')=>{const d=document.createElement('div');d.className='cmd-line';if(type==='err')d.style.color='#ff5555';else if(type==='info')d.style.color='#8be9fd';else d.style.color='#f8f8f2';d.textContent=t;out.appendChild(d);out.scrollTop=out.scrollHeight;};const updatePmt=()=>{pmt.innerHTML='<span class="dr-green">user</span>@<span class="dr-pink">webos</span>:<span class="dr-cyan">'+cwd.replace('/home/user','~')+'</span>$';};updatePmt();inp.onkeydown=(e)=>{if(e.key==='Enter'){const v=inp.value.trim();const cmdLine=document.createElement('div');cmdLine.className='cmd-line';cmdLine.innerHTML='<span class="dr-green">user</span>@<span class="dr-pink">webos</span>:<span class="dr-cyan">'+cwd.replace('/home/user','~')+'</span>$ '+v;out.appendChild(cmdLine);inp.value='';if(!v){out.scrollTop=out.scrollHeight;return;}if(v.startsWith('echo')&&v.includes('>')){const parts=v.split('>');const content=parts[0].replace(/^echo\\s+/,'').replace(/['"]/g,'').trim();const target=parts[1].trim();if(target){FS.write(FS.resolve(cwd,target),'file',content);return;}}const args=v.split(' ');const cmd=args.shift();if(cmd==='ls'){const items=FS.ls(args[0]?FS.resolve(cwd,args[0]):cwd);const html=items.map(f=>f.type==='dir'?'<span class="dr-cyan" style="font-weight:bold">'+f.name+'/</span>':'<span style="color:#f8f8f2">'+f.name+'</span>').join('&nbsp;&nbsp;');const d=document.createElement('div');d.className='cmd-line';d.innerHTML=html;out.appendChild(d);out.scrollTop=out.scrollHeight;}else if(cmd==='pwd')print(cwd);else if(cmd==='cd'){const t=FS.resolve(cwd,args[0]||'/home/user');if(FS.getItem(t)?.type==='dir'){cwd=t;updatePmt();}else print('No such directory','err');}else if(cmd==='mkdir'){if(args[0]){FS.write(FS.resolve(cwd,args[0]),'dir');}else print('Usage: mkdir [name]','err');}else if(cmd==='rm'){if(args[0])FS.write(FS.resolve(cwd,args[0]),'delete');else print('Usage: rm [file]','err');}else if(cmd==='touch'){if(args[0]){const target=FS.resolve(cwd,args[0]);if(!FS.getItem(target)){FS.write(target,'file','');}}else{print('Usage: touch [file]','err');}}else if(cmd==='cat'){const f=FS.getItem(FS.resolve(cwd,args[0]));if(f)print(f.content);else print('File not found','err');}else if(cmd==='clear'){out.innerHTML='';}else if(cmd==='help'){print('Commands: ls, cd, pwd, touch, mkdir, rm, cat, cp, mv, echo, clear, nano','info');print('Runtime: node [file], python [file]','info');}else if(cmd==='nano'){let p=args[0]?FS.resolve(cwd,args[0]):null;let f=FS.getItem(p)||{path:p,content:'',name:args[0]};OS.exec('/bin/notepad.app',{file:f});}else if(cmd==='python'||cmd==='py'){const f=FS.getItem(FS.resolve(cwd,args[0]));if(f)OS.runCode('python',f.content,(msg,type)=>print(msg,type));else print('File not found','err');}else if(cmd==='node'||cmd==='js'){const f=FS.getItem(FS.resolve(cwd,args[0]));if(f)OS.runCode('js',f.content,(msg,type)=>print(msg,type));else print('File not found','err');}else if(cmd==='echo'){print(v.replace(/^echo\\s+/,'').replace(/['"]/g,''));}else print('Command not found: '+cmd,'err');out.scrollTop=out.scrollHeight;}};`
+                `const out=document.getElementById('out-'+pid);const inp=document.getElementById('in-'+pid);const pmt=document.getElementById('pmt-'+pid);let cwd='/home/user';const print=(t,type='normal')=>{const d=document.createElement('div');d.className='cmd-line';if(type==='err')d.style.color='#ff5555';else if(type==='info')d.style.color='#8be9fd';else d.style.color='#f8f8f2';d.textContent=t;out.appendChild(d);out.scrollTop=out.scrollHeight;};const updatePmt=()=>{pmt.innerHTML='<span class="dr-green">user</span>@<span class="dr-pink">webos</span>:<span class="dr-cyan">'+cwd.replace('/home/user','~')+'</span>$';};updatePmt();inp.onkeydown=(e)=>{if(e.key==='Enter'){const v=inp.value.trim();const cmdLine=document.createElement('div');cmdLine.className='cmd-line';cmdLine.innerHTML='<span class="dr-green">user</span>@<span class="dr-pink">webos</span>:<span class="dr-cyan">'+cwd.replace('/home/user','~')+'</span>$ '+v;out.appendChild(cmdLine);inp.value='';if(!v){out.scrollTop=out.scrollHeight;return;}if(v.startsWith('echo')&&v.includes('>')){const parts=v.split('>');const content=parts[0].replace(/^echo\\s+/,'').replace(/['"]/g,'').trim();const target=parts[1].trim();if(target){FS.write(FS.resolve(cwd,target),'file',content);return;}}const args=v.split(' ');const cmd=args.shift();
+                
+                // --- 명령어 처리 로직 시작 ---
+                if(cmd==='ls'){const items=FS.ls(args[0]?FS.resolve(cwd,args[0]):cwd);const html=items.map(f=>f.type==='dir'?'<span class="dr-cyan" style="font-weight:bold">'+f.name+'/</span>':'<span style="color:#f8f8f2">'+f.name+'</span>').join('&nbsp;&nbsp;');const d=document.createElement('div');d.className='cmd-line';d.innerHTML=html;out.appendChild(d);out.scrollTop=out.scrollHeight;}
+                else if(cmd==='pwd')print(cwd);
+                else if(cmd==='cd'){const t=FS.resolve(cwd,args[0]||'/home/user');if(FS.getItem(t)?.type==='dir'){cwd=t;updatePmt();}else print('No such directory','err');}
+                else if(cmd==='mkdir'){if(args[0]){FS.write(FS.resolve(cwd,args[0]),'dir');}else print('Usage: mkdir [name]','err');}
+                else if(cmd==='rm'){if(args[0])FS.write(FS.resolve(cwd,args[0]),'delete');else print('Usage: rm [file]','err');}
+                
+                // [추가됨] CP 명령어
+                else if(cmd==='cp'){
+                    if(args.length >= 2){
+                        const srcPath = FS.resolve(cwd, args[0]);
+                        const destPath = FS.resolve(cwd, args[1]);
+                        const srcFile = FS.getItem(srcPath);
+                        if(srcFile){
+                            // 대상이 디렉토리인 경우 파일명 유지 (간단한 처리)
+                            let finalDest = destPath;
+                            const destItem = FS.getItem(destPath);
+                            if(destItem && destItem.type === 'dir') finalDest = destPath + '/' + srcFile.name;
+                            
+                            FS.write(finalDest, srcFile.type, srcFile.content);
+                        } else print('Source not found: ' + args[0], 'err');
+                    } else print('Usage: cp [source] [dest]', 'err');
+                }
+                
+                // [추가됨] MV 명령어
+                else if(cmd==='mv'){
+                    if(args.length >= 2){
+                        const srcPath = FS.resolve(cwd, args[0]);
+                        const destPath = FS.resolve(cwd, args[1]);
+                        const srcFile = FS.getItem(srcPath);
+                        if(srcFile){
+                            let finalDest = destPath;
+                            const destItem = FS.getItem(destPath);
+                            if(destItem && destItem.type === 'dir') finalDest = destPath + '/' + srcFile.name;
+
+                            FS.write(finalDest, srcFile.type, srcFile.content); // 복사
+                            FS.write(srcPath, 'delete'); // 원본 삭제
+                        } else print('Source not found: ' + args[0], 'err');
+                    } else print('Usage: mv [source] [dest]', 'err');
+                }
+
+                else if(cmd==='touch'){if(args[0]){const target=FS.resolve(cwd,args[0]);if(!FS.getItem(target)){FS.write(target,'file','');}}else{print('Usage: touch [file]','err');}}
+                else if(cmd==='cat'){const f=FS.getItem(FS.resolve(cwd,args[0]));if(f)print(f.content);else print('File not found','err');}
+                else if(cmd==='clear'){out.innerHTML='';}
+                else if(cmd==='help'){print('Commands: ls, cd, pwd, touch, mkdir, rm, cat, cp, mv, echo, clear, nano','info');print('Runtime: node [file], python [file]','info');}
+                else if(cmd==='nano'){let p=args[0]?FS.resolve(cwd,args[0]):null;let f=FS.getItem(p)||{path:p,content:'',name:args[0]};OS.exec('/bin/notepad.app',{file:f});}
+                else if(cmd==='python'||cmd==='py'){const f=FS.getItem(FS.resolve(cwd,args[0]));if(f)OS.runCode('python',f.content,(msg,type)=>print(msg,type));else print('File not found','err');}
+                else if(cmd==='node'||cmd==='js'){const f=FS.getItem(FS.resolve(cwd,args[0]));if(f)OS.runCode('js',f.content,(msg,type)=>print(msg,type));else print('File not found','err');}
+                else if(cmd==='echo'){print(v.replace(/^echo\\s+/,'').replace(/['"]/g,''));}
+                else print('Command not found: '+cmd,'err');out.scrollTop=out.scrollHeight;}};`
             );
 
             // --------------------------------------------------------------------------------
