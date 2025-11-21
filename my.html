@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Web OS v14.9 (Design Overhaul)</title>
+    <style>
+        /* --- 시스템 코어 스타일 --- */
+        body { margin: 0; padding: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop') no-repeat center center fixed; background-size: cover; height: 100vh; user-select: none; color: #e0e0e0; }
+        
+        /* 바탕화면 아이콘 - 가독성 개선 */
+        .desktop-icons { position: absolute; top: 15px; left: 15px; display: flex; flex-direction: column; gap: 20px; z-index: 10; }
+        .icon { width: 72px; text-align: center; cursor: pointer; padding: 8px; border-radius: 8px; color: white; font-size: 12px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); transition: 0.2s; background: rgba(255,255,255,0.1); backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.1); }
+        .icon:hover { background-color: rgba(255, 255, 255, 0.25); transform: scale(1.05); }
+        .icon-img { font-size: 32px; display: block; margin-bottom: 5px; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.5)); }
+
+        /* 창 디자인 - 그림자 및 둥근 모서리 강화 */
+        .window { position: absolute; background-color: #252526; border: 1px solid #444; box-shadow: 0 15px 50px rgba(0,0,0,0.7); display: flex; flex-direction: column; border-radius: 8px; overflow: hidden; animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes popIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        
+        .title-bar { background: #2d2d2d; color: #ccc; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #111; height: 36px; box-sizing: border-box;}
+        .title-bar.active { background: #333; color: white; border-bottom: 1px solid #007acc; }
+        .window-controls { display: flex; gap: 8px; }
+        .win-btn { width: 12px; height: 12px; border-radius: 50%; cursor: pointer; transition: 0.2s;}
+        .win-btn:hover { filter: brightness(1.2); }
+        .btn-min { background: #f1c40f; } .btn-close { background: #e74c3c; }
+        
+        .window-body { flex-grow: 1; position: relative; overflow: hidden; display: flex; flex-direction: column; background: #1e1e1e; }
+        .drag-shield { position: absolute; top:0; left:0; width:100%; height:100%; display: none; z-index: 999; }
+        .resizer { width: 15px; height: 15px; position: absolute; right: 0; bottom: 0; cursor: se-resize; z-index: 60; background: linear-gradient(135deg, transparent 50%, #666 50%);}
+        
+        /* 작업 표시줄 */
+        .taskbar { position: absolute; bottom: 0; width: 100%; height: 45px; background: rgba(30, 30, 30, 0.85); backdrop-filter: blur(10px); border-top: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; padding: 0 10px; z-index: 99999; gap: 6px; }
+        .task-item { min-width: 40px; padding: 0 15px; height: 35px; background: rgba(255,255,255,0.05); color: #aaa; border-radius: 4px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; transition: 0.2s; border-bottom: 2px solid transparent;}
+        .task-item:hover { background: rgba(255,255,255,0.1); }
+        .task-item.active { border-bottom: 2px solid #007acc; color: white; background: rgba(255,255,255,0.15); font-weight: 500;}
+        .clock { margin-left: auto; color: #fff; font-size: 13px; margin-right: 15px; font-weight: 500;}
+        
+        input, button, textarea { font-family: 'Consolas', 'JetBrains Mono', monospace; outline: none; }
+
+        /* Syntax Highlighting */
+        .token-comment { color: #6272a4; font-style: italic; } 
+        .token-string { color: #f1fa8c; }
+        .token-keyword { color: #ff79c6; font-weight: bold; } 
+        .token-number { color: #bd93f9; }
+        .token-func { color: #8be9fd; }
+    </style>
+</head>
+<body>
+
+    <div class="desktop-icons">
+        <div class="icon" ondblclick="OS.exec('/bin/explorer.app')"><span class="icon-img">📁</span>내 컴퓨터</div>
+        <div class="icon" ondblclick="OS.exec('/bin/notepad.app')"><span class="icon-img">📝</span>에디터</div>
+        <div class="icon" ondblclick="OS.exec('/bin/terminal.app')"><span class="icon-img">💻</span>터미널</div>
+        <div class="icon" ondblclick="OS.exec('/bin/browser.app')"><span class="icon-img">🌐</span>인터넷</div>
+        <div class="icon" ondblclick="OS.exec('/bin/calc.app')"><span class="icon-img">🧮</span>계산기</div>
+        <div class="icon" ondblclick="OS.exec('/bin/2048.app')"><span class="icon-img">🎮</span>2048</div>
+    </div>
+
+    <div class="taskbar" id="taskbar">
+        <div class="clock" id="clock">00:00</div>
+    </div>
+
+    <script>
+        // --- 1. 파일 시스템 (FS) ---
+        const FS = {
+            key: 'webos_v16', 
+            init: () => {
+                if(!localStorage.getItem(FS.key)) {
+                    const systemApps = AppsInstaller();
+                    const defaults = [
+                        { name: '', type: 'dir', parent: null, path: '/' },
+                        { name: 'bin', type: 'dir', parent: '/', path: '/bin' },
+                        { name: 'home', type: 'dir', parent: '/', path: '/home' },
+                        { name: 'user', type: 'dir', parent: '/home', path: '/home/user' },
+                        { name: 'welcome.js', type: 'file', parent: '/home/user', path: '/home/user/welcome.js', content: 'console.log("Welcome to the Redesigned Web OS!");\nconsole.log("터미널 디자인이 훨씬 깔끔해졌습니다.");' },
+                        ...systemApps
+                    ];
+                    FS.save(defaults);
+                }
+            },
+            get: () => JSON.parse(localStorage.getItem(FS.key)) || [],
+            save: (data) => localStorage.setItem(FS.key, JSON.stringify(data)),
+            resolve: (cwd, target) => {
+                if (target.startsWith('/')) return target;
+                let parts = cwd === '/' ? [] : cwd.split('/').filter(p => p);
+                const targets = target.split('/').filter(p => p);
+                for (let t of targets) { if (t === '.') continue; if (t === '..') { if(parts.length > 0) parts.pop(); } else parts.push(t); }
+                return parts.length === 0 ? '/' : '/' + parts.join('/');
+            },
+            getItem: (path) => FS.get().find(f => f.path === path),
+            ls: (path) => FS.get().filter(f => f.parent === path),
+            write: (path, type, content = "") => {
+                let files = FS.get().filter(f => f.path !== path);
+                if (type !== 'delete') {
+                    const lastSlash = path.lastIndexOf('/');
+                    files.push({ name: path.substring(lastSlash + 1), type, parent: lastSlash===0?'/':path.substring(0, lastSlash), path, content });
+                }
+                FS.save(files);
+            }
+        };
+
+        // --- 2. OS 커널 ---
+        const OS = {
+            zIndex: 100, idCounter: 0, processes: {},
+            exec: (path, args = {}) => {
+                const file = FS.getItem(path);
+                if(!file) return alert('파일 오류: ' + path);
+                try {
+                    const appData = JSON.parse(file.content);
+                    const pid = `proc_${++OS.idCounter}`;
+                    const finalHtml = appData.html.replace(/__PID__/g, pid);
+                    const finalScript = appData.script.replace(/__PID__/g, pid);
+
+                    const win = document.createElement('div');
+                    win.className = 'window'; win.id = pid; win.style.zIndex = ++OS.zIndex;
+                    win.style.width = (appData.config.width || 400) + 'px';
+                    win.style.height = (appData.config.height || 300) + 'px';
+                    win.style.top = (50 + (OS.idCounter * 20) % 300) + 'px';
+                    win.style.left = (50 + (OS.idCounter * 20) % 500) + 'px';
+
+                    // 창 제목 표시줄 스타일이 앱마다 다를 수 있음 (터미널은 어둡게)
+                    const titleStyle = appData.config.title === 'Terminal' ? 'background:#1e1e1e; border-bottom:1px solid #333;' : '';
+
+                    win.innerHTML = `
+                        <div class="title-bar" style="${titleStyle}" onmousedown="OS.wm.dragStart(event, '${pid}')">
+                            <span>${appData.config.icon} ${appData.config.title}</span>
+                            <div class="window-controls"><div class="win-btn btn-min" onclick="OS.wm.minimize('${pid}')"></div><div class="win-btn btn-close" onclick="OS.kill('${pid}')"></div></div>
+                        </div>
+                        <div class="window-body" id="body-${pid}" style="${appData.config.bg ? 'background:'+appData.config.bg : ''}">
+                            ${finalHtml}
+                            <div class="drag-shield"></div>
+                        </div>
+                        <div class="resizer" onmousedown="OS.wm.resizeStart(event, '${pid}')"></div>
+                    `;
+                    win.addEventListener('mousedown', () => OS.wm.focus(pid));
+                    document.body.appendChild(win);
+                    OS.wm.addTaskbar(pid, appData.config.title);
+
+                    try {
+                        const appLogic = new Function('pid', 'args', 'FS', 'OS', 'document', 'window', finalScript);
+                        OS.processes[pid] = { path, state: 'running' };
+                        setTimeout(() => { try { appLogic(pid, args, FS, OS, document, window); } catch(e) { alert(`오류: ${e.message}`); } }, 10);
+                    } catch(e) { alert(`로딩 실패: ${e.message}`); }
+
+                    OS.wm.focus(pid);
+                    return pid;
+                } catch (e) { alert('실행 실패: ' + e.message); }
+            },
+            kill: (pid) => {
+                const win = document.getElementById(pid); if(win) win.remove();
+                const task = document.getElementById(`task-${pid}`); if(task) task.remove();
+                delete OS.processes[pid];
+            },
+            wm: {
+                focus: (id) => {
+                    const win = document.getElementById(id); if(!win) return;
+                    if(win.style.display==='none') win.style.display='flex';
+                    win.style.zIndex = ++OS.zIndex;
+                    document.querySelectorAll('.title-bar').forEach(e=>e.classList.remove('active')); win.querySelector('.title-bar').classList.add('active');
+                    document.querySelectorAll('.task-item').forEach(e=>e.classList.remove('active')); const t=document.getElementById(`task-${id}`); if(t)t.classList.add('active');
+                },
+                minimize: (id) => { document.getElementById(id).style.display='none'; document.getElementById(`task-${id}`).classList.remove('active'); },
+                addTaskbar: (id, title) => {
+                    const item = document.createElement('div'); item.id=`task-${id}`; item.className='task-item';
+                    item.innerHTML = `<span>${title}</span>`;
+                    item.onclick = () => OS.wm.focus(id);
+                    document.getElementById('taskbar').insertBefore(item, document.getElementById('clock'));
+                },
+                dragState: null,
+                dragStart: (e, id) => { if(e.target.classList.contains('win-btn')) return; document.querySelectorAll('.drag-shield').forEach(el => el.style.display = 'block'); const win=document.getElementById(id); OS.wm.dragState={type:'move',win,dx:e.clientX-win.offsetLeft,dy:e.clientY-win.offsetTop}; document.addEventListener('mousemove',OS.wm.dragMove); document.addEventListener('mouseup',OS.wm.dragEnd); },
+                resizeStart: (e, id) => { document.querySelectorAll('.drag-shield').forEach(el => el.style.display = 'block'); const win=document.getElementById(id); OS.wm.dragState={type:'resize',win,w:win.offsetWidth,h:win.offsetHeight,sx:e.clientX,sy:e.clientY}; document.addEventListener('mousemove',OS.wm.dragMove); document.addEventListener('mouseup',OS.wm.dragEnd); e.stopPropagation(); },
+                dragMove: (e) => { const s=OS.wm.dragState; if(!s)return; if(s.type==='move'){ s.win.style.left=(e.clientX-s.dx)+'px';s.win.style.top=(e.clientY-s.dy)+'px'; } else{ s.win.style.width=(s.w+e.clientX-s.sx)+'px';s.win.style.height=(s.h+e.clientY-s.sy)+'px'; } },
+                dragEnd: () => { OS.wm.dragState=null; document.querySelectorAll('.drag-shield').forEach(el => el.style.display = 'none'); document.removeEventListener('mousemove',OS.wm.dragMove); document.removeEventListener('mouseup',OS.wm.dragEnd); }
+            }
+        };
+
+        // --- 3. 앱 패키지 ---
+        function AppsInstaller() {
+            const apps = [];
+            const add = (name, config, html, script) => apps.push({ name: name+'.app', type: 'file', parent: '/bin', path: '/bin/'+name+'.app', content: JSON.stringify({ config, html, script }, null, 2) });
+
+            // 1. 터미널 (디자인 대폭 개선)
+            add('terminal', { title: 'Terminal', icon: '💻', width: 650, height: 450, bg: 'transparent' },
+                `<style>
+                    /* Glassmorphism Background */
+                    .term-container { 
+                        display: flex; flex-direction: column; height: 100%; 
+                        background: rgba(18, 18, 18, 0.92); /* 아주 어두운 배경 */
+                        backdrop-filter: blur(12px); /* 블러 효과 */
+                        padding: 12px; box-sizing: border-box;
+                        font-family: 'Consolas', 'Menlo', 'Courier New', monospace;
+                        color: #f8f8f2; font-size: 14px;
+                    }
+                    .term-out { flex-grow: 1; overflow-y: auto; margin-bottom: 10px; }
+                    /* 스크롤바 디자인 */
+                    .term-out::-webkit-scrollbar { width: 8px; }
+                    .term-out::-webkit-scrollbar-track { background: transparent; }
+                    .term-out::-webkit-scrollbar-thumb { background: #44475a; border-radius: 4px; }
+                    .term-out::-webkit-scrollbar-thumb:hover { background: #6272a4; }
+
+                    .term-input-area { display: flex; align-items: center; }
+                    .prompt { margin-right: 8px; white-space: nowrap; }
+                    .term-input { 
+                        flex-grow: 1; background: transparent; border: none; outline: none; 
+                        color: #f8f8f2; font-family: inherit; font-size: inherit; caret-color: #ff79c6;
+                    }
+                    
+                    /* Dracula Theme Colors */
+                    .dr-green { color: #50fa7b; font-weight: bold; }
+                    .dr-pink { color: #ff79c6; font-weight: bold; }
+                    .dr-cyan { color: #8be9fd; }
+                    .dr-purple { color: #bd93f9; }
+                    .dr-comment { color: #6272a4; }
+                    .cmd-line { margin-bottom: 2px; line-height: 1.4; }
+                </style>
+                <div class="term-container" onclick="document.getElementById('in-__PID__').focus()">
+                    <div id="out-__PID__" class="term-out">
+                        <div class="cmd-line"><span class="dr-purple">WebOS v14.9 Kernel</span> initialized...</div>
+                        <div class="cmd-line">Type <span class="dr-green">'help'</span> to see commands.</div>
+                        <br>
+                    </div>
+                    <div class="term-input-area">
+                        <span id="pmt-__PID__" class="prompt"></span>
+                        <input id="in-__PID__" class="term-input" autocomplete="off" spellcheck="false">
+                    </div>
+                </div>`,
+                `
+                const out=document.getElementById('out-'+pid);
+                const inp=document.getElementById('in-'+pid);
+                const pmt=document.getElementById('pmt-'+pid);
+                let cwd='/home/user';
+                
+                // 컬러 출력 헬퍼
+                const print=(t, type='normal')=>{
+                    const d=document.createElement('div');
+                    d.className='cmd-line';
+                    if(type==='err') d.style.color='#ff5555'; // Red
+                    else if(type==='info') d.style.color='#8be9fd'; // Cyan
+                    else d.style.color='#f8f8f2'; // White
+                    d.textContent=t;
+                    out.appendChild(d);
+                    out.scrollTop=out.scrollHeight;
+                };
+
+                // 컬러 프롬프트 업데이트 (User@WebOS:Path $)
+                const updatePmt=()=>{
+                    // HTML로 색상 적용
+                    pmt.innerHTML = '<span class="dr-green">user</span>@<span class="dr-pink">webos</span>:<span class="dr-cyan">' + cwd.replace('/home/user','~') + '</span>$';
+                };
+                updatePmt();
+
+                inp.onkeydown=(e)=>{if(e.key==='Enter'){
+                    const v=inp.value.trim();
+                    
+                    // 입력한 명령어도 예쁘게 출력
+                    const cmdLine = document.createElement('div');
+                    cmdLine.className='cmd-line';
+                    cmdLine.innerHTML = '<span class="dr-green">user</span>@<span class="dr-pink">webos</span>:<span class="dr-cyan">' + cwd.replace('/home/user','~') + '</span>$ ' + v;
+                    out.appendChild(cmdLine);
+                    
+                    inp.value='';
+                    if(!v) { out.scrollTop=out.scrollHeight; return; }
+                    
+                    // 리다이렉트 로직
+                    if(v.startsWith('echo') && v.includes('>')) {
+                        const parts = v.split('>');
+                        const content = parts[0].replace(/^echo\\s+/,'').replace(/['"]/g,'').trim();
+                        const target = parts[1].trim();
+                        if(target) { FS.write(FS.resolve(cwd,target), 'file', content); return; }
+                    }
+
+                    const args=v.split(' ');const cmd=args.shift();
+                    
+                    if(cmd==='ls'){
+                        const items = FS.ls(args[0]?FS.resolve(cwd,args[0]):cwd);
+                        const html = items.map(f => f.type==='dir' ? '<span class="dr-cyan" style="font-weight:bold">'+f.name+'/</span>' : '<span style="color:#f8f8f2">'+f.name+'</span>').join('&nbsp;&nbsp;');
+                        const d=document.createElement('div'); d.className='cmd-line'; d.innerHTML=html; out.appendChild(d); out.scrollTop=out.scrollHeight;
+                    }
+                    else if(cmd==='pwd')print(cwd);
+                    else if(cmd==='cd'){const t=FS.resolve(cwd,args[0]||'/home/user');if(FS.getItem(t)?.type==='dir'){cwd=t;updatePmt();}else print('No such directory','err');}
+                    else if(cmd==='mkdir'){if(args[0]){FS.write(FS.resolve(cwd,args[0]),'dir');}else print('Usage: mkdir [name]','err');}
+                    else if(cmd==='rm'){if(args[0])FS.write(FS.resolve(cwd,args[0]),'delete');else print('Usage: rm [file]','err');}
+                    else if(cmd==='cat'){const f=FS.getItem(FS.resolve(cwd,args[0]));if(f)print(f.content);else print('File not found','err');}
+                    else if(cmd==='clear'){out.innerHTML='';}
+                    else if(cmd==='help'){print('Commands: ls, cd, pwd, mkdir, rm, cat, cp, mv, echo, node, nano, clear','info');}
+                    else if(cmd==='nano'){let p=args[0]?FS.resolve(cwd,args[0]):null;let f=FS.getItem(p)||{path:p,content:'',name:args[0]};OS.exec('/bin/notepad.app',{file:f});}
+                    else if(cmd==='node'){
+                        const f=FS.getItem(FS.resolve(cwd,args[0]));
+                        if(f){try{new Function('console','FS','OS',f.content)({log:(m)=>print(m)},FS,OS)}catch(e){print(e.message,'err')}}
+                        else print('File not found','err')
+                    }
+                    else if(cmd==='cp'){
+                        if(!args[0]||!args[1]) return print('Usage: cp [src] [dest]','err');
+                        const s=FS.getItem(FS.resolve(cwd,args[0]));
+                        if(s)FS.write(FS.resolve(cwd,args[1]),s.type,s.content);
+                        else print('Source not found','err');
+                    }
+                    else if(cmd==='mv'){
+                        if(!args[0]||!args[1]) return print('Usage: mv [src] [dest]','err');
+                        const sp=FS.resolve(cwd,args[0]); const s=FS.getItem(sp);
+                        if(s) { FS.write(FS.resolve(cwd,args[1]),s.type,s.content); FS.write(sp,'delete'); }
+                        else print('Source not found','err');
+                    }
+                    else if(cmd==='echo'){print(v.replace(/^echo\\s+/,'').replace(/['"]/g,''));}
+                    else print('Command not found: '+cmd,'err');
+                    
+                    out.scrollTop=out.scrollHeight;
+                }};
+                `
+            );
+
+            // 2. 에디터 (기존 기능 유지 + 디자인 약간 개선)
+            add('notepad', { title: 'Code Editor', icon: '📝', width: 600, height: 450, bg:'#1e1e1e' },
+                `<style>
+                    .ne-layout { display: flex; flex-direction: column; height: 100%; position: relative; }
+                    .ne-toolbar { display: flex; gap: 8px; background: #252526; padding: 6px 10px; border-bottom: 1px solid #333; z-index: 10; }
+                    .ne-btn { background: #333; border: 1px solid #444; color: #eee; cursor: pointer; padding: 4px 10px; font-size: 12px; border-radius: 4px; transition:0.2s; }
+                    .ne-btn:hover { background: #444; }
+                    .ne-run { color: #50fa7b; border-color: #2e5c3d; }
+                    .ne-run:hover { background: #2e5c3d; }
+                    .ne-body { flex-grow: 1; display: flex; position: relative; overflow: hidden; }
+                    .line-numbers { width: 45px; background: #1e1e1e; color: #555; text-align: right; padding: 10px 10px 10px 0; font-family: 'Consolas', monospace; font-size: 14px; line-height: 1.5; border-right: 1px solid #333; box-sizing: border-box; overflow: hidden; }
+                    .editor-stack { flex-grow: 1; position: relative; overflow: hidden; background: #1e1e1e; }
+                    .code-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; margin: 0; padding: 10px; border: none; box-sizing: border-box; font-family: 'Consolas', monospace; font-size: 14px; line-height: 1.5; white-space: pre; overflow: auto; tab-size: 4; }
+                    #highlight-__PID__ { color: #d4d4d4; z-index: 1; pointer-events: none; }
+                    #input-__PID__ { color: transparent; background: transparent; z-index: 2; caret-color: white; outline: none; resize: none; }
+                    .ne-status { background: #007acc; color: white; font-size: 11px; padding: 3px 10px; z-index: 10; display:flex; justify-content:space-between;}
+                </style>
+                <div class="ne-layout">
+                    <div class="ne-toolbar">
+                        <button class="ne-btn" onclick="window['neSave___PID__']()">💾 Save</button>
+                        <button class="ne-btn ne-run" onclick="window['neRun___PID__']()">▶ Run</button>
+                    </div>
+                    <div class="ne-body">
+                        <div id="lines-__PID__" class="line-numbers">1</div>
+                        <div class="editor-stack">
+                            <pre id="highlight-__PID__" class="code-layer"></pre>
+                            <textarea id="input-__PID__" class="code-layer" spellcheck="false" 
+                                      oninput="window['neUpdate___PID__']()" 
+                                      onscroll="window['neScroll___PID__']()"
+                                      onkeydown="window['neKey___PID__'](event)"></textarea>
+                        </div>
+                    </div>
+                    <div class="ne-status"><span id="path-__PID__">Untitled</span><span>JavaScript</span></div>
+                </div>`,
+                `const input=document.getElementById('input-'+pid);const highlight=document.getElementById('highlight-'+pid);const lines=document.getElementById('lines-'+pid);const pathDisplay=document.getElementById('path-'+pid);let currentPath=args.file?args.file.path:null;if(args.file){input.value=args.file.content;currentPath=args.file.path;pathDisplay.innerText=currentPath;}const escapeHTML=(text)=>text.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");const updateAll=()=>{let code=input.value;code=escapeHTML(code);code=code.replace(/(\\/\\/.*)/g,'<span class="token-comment">$1</span>');code=code.replace(/(".*?"|'.*?')/g,'<span class="token-string">$1</span>');const keywords='const|let|var|if|else|for|while|function|return|new|try|catch|console|alert|document|window';code=code.replace(new RegExp('\\\\b('+keywords+')\\\\b','g'),'<span class="token-keyword">$1</span>');code=code.replace(/\\b(\\d+)\\b/g,'<span class="token-number">$1</span>');code=code.replace(/(\\w+)(?=\\()/g,'<span class="token-func">$1</span>');if(code.endsWith('\\n'))code+=' ';highlight.innerHTML=code;const lineCount=input.value.split('\\n').length;lines.innerHTML=Array(lineCount).fill(0).map((_,i)=>i+1).join('<br>');};window['neScroll_'+pid]=()=>{highlight.scrollTop=input.scrollTop;highlight.scrollLeft=input.scrollLeft;lines.scrollTop=input.scrollTop;};window['neKey_'+pid]=(e)=>{if(e.key==='Tab'){e.preventDefault();const s=input.selectionStart;input.value=input.value.substring(0,s)+'    '+input.value.substring(input.selectionEnd);input.selectionStart=input.selectionEnd=s+4;updateAll();}};window['neSave_'+pid]=()=>{if(!currentPath){const p=prompt('저장 경로:');if(!p)return;currentPath=p;}FS.write(currentPath,'file',input.value);pathDisplay.innerText=currentPath;alert('Saved: '+currentPath);};window['neRun_'+pid]=()=>{try{new Function('FS','OS','document','window','console','alert',input.value)(FS,OS,document,window,console,alert);}catch(e){alert('Error:\\n'+e.message);}};window['neUpdate_'+pid]=updateAll;updateAll();`
+            );
+
+            // 3. 기타 앱들
+            add('calc', { title: 'Calc', icon: '🧮', width: 260, height: 380, bg:'#202020' }, `<style>.cl-layout{display:flex;flex-direction:column;height:100%;padding:10px;}.cl-screen{width:100%;height:60px;background:#333;color:white;border:none;text-align:right;font-size:28px;margin-bottom:10px;border-radius:6px;padding:5px;}.cl-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;flex-grow:1;}button{background:#3a3a3a;color:white;border:none;border-radius:6px;font-size:18px;cursor:pointer;transition:0.1s;}button:hover{filter:brightness(1.2);}button:active{transform:scale(0.95);}.op{background:#ff9f0a;}.ac{background:#ff453a;}</style><div class="cl-layout"><input id="d-__PID__" class="cl-screen" value="0" readonly><div class="cl-grid"><button class="ac" onclick="window['c___PID__']('C')">C</button><button class="op" onclick="window['c___PID__']('/')">/</button><button class="op" onclick="window['c___PID__']('*')">×</button><button class="op" onclick="window['c___PID__']('-')">-</button><button onclick="window['c___PID__']('7')">7</button><button onclick="window['c___PID__']('8')">8</button><button onclick="window['c___PID__']('9')">9</button><button class="op" onclick="window['c___PID__']('+')">+</button><button onclick="window['c___PID__']('4')">4</button><button onclick="window['c___PID__']('5')">5</button><button onclick="window['c___PID__']('6')">6</button><button class="op" onclick="window['c___PID__']('=')" style="grid-row:span 2">=</button><button onclick="window['c___PID__']('1')">1</button><button onclick="window['c___PID__']('2')">2</button><button onclick="window['c___PID__']('3')">3</button><button onclick="window['c___PID__']('0')" style="grid-column:span 2">0</button><button onclick="window['c___PID__']('.')">.</button></div></div>`,`const d=document.getElementById('d-'+pid);window['c_'+pid]=v=>{if(v=='C')d.value='0';else if(v=='=')try{d.value=eval(d.value)}catch{d.value='E'}else d.value=d.value=='0'?v:d.value+v}`);
+            add('browser', { title: 'Internet', icon: '🌐', width: 800, height: 550 }, `<div style="display:flex;flex-direction:column;height:100%;"><div style="padding:8px;background:#333;display:flex;gap:8px;"><input id="u-__PID__" value="https://ko.m.wikipedia.org" style="flex-grow:1;background:#222;color:white;border:none;padding:5px;border-radius:4px;"><button onclick="document.getElementById('f-__PID__').src=document.getElementById('u-__PID__').value" style="background:#007acc;color:white;border:none;padding:5px 10px;border-radius:4px;cursor:pointer;">Go</button></div><iframe id="f-__PID__" src="https://ko.m.wikipedia.org" style="flex-grow:1;border:none;background:white;"></iframe></div>`, ``);
+            add('explorer', { title: 'Explorer', icon: '📁', width: 600, height: 450, bg:'#252526' }, `<div style="display:flex;flex-direction:column;height:100%;"><div style="padding:8px;background:#333;display:flex;gap:8px;"><button onclick="window['up___PID__']()" style="background:#444;color:white;border:none;border-radius:4px;cursor:pointer;padding:5px;">⬆</button><input id="p-__PID__" style="flex-grow:1;background:#222;color:white;border:none;padding:5px;border-radius:4px;" readonly><button onclick="window['ref___PID__']()" style="background:#444;color:white;border:none;border-radius:4px;cursor:pointer;padding:5px;">🔄</button></div><div id="l-__PID__" style="flex-grow:1;overflow:auto;padding:5px;"></div></div>`, `let cwd='/home/user';const r=()=>{document.getElementById('p-'+pid).value=cwd;const l=document.getElementById('l-'+pid);l.innerHTML='';FS.ls(cwd).forEach(f=>{const d=document.createElement('div');d.style.padding='8px';d.style.cursor='pointer';d.style.color='#e0e0e0';d.style.borderBottom='1px solid #333';d.style.display='flex';d.style.alignItems='center';d.innerHTML=(f.type=='dir'?'<span style="font-size:18px;margin-right:8px;">📁</span>':'<span style="font-size:18px;margin-right:8px;">📄</span>')+f.name;d.onmouseover=()=>{d.style.background='#37373d'};d.onmouseout=()=>{d.style.background='transparent'};d.ondblclick=()=>{if(f.type=='dir'){cwd=f.path;r();}else if(f.name.endsWith('.app'))OS.exec(f.path);else OS.exec('/bin/notepad.app',{file:f})};l.appendChild(d)})};window['up_'+pid]=()=>{cwd=FS.resolve(cwd,'..');r()};window['ref_'+pid]=r;r();`);
+            
+            // 4. 2048 게임 (새로 추가됨)
+            add('2048', { title: '2048', icon: '🎮', width: 360, height: 480, bg: '#202020' },
+                `<style>
+                    .g2048-container { display: flex; flex-direction: column; height: 100%; padding: 20px; align-items: center; user-select: none; outline: none; }
+                    .g2048-header { display: flex; justify-content: space-between; width: 100%; margin-bottom: 15px; align-items: center; }
+                    .g2048-score-box { background: #bbada0; color: #eee4da; padding: 5px 15px; border-radius: 6px; font-weight: bold; text-align: center; }
+                    .g2048-score-label { font-size: 11px; color: #eee4da99; display: block; }
+                    .g2048-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr); gap: 10px; background: #bbada0; padding: 10px; border-radius: 6px; width: 280px; height: 280px; box-sizing: border-box; position: relative;}
+                    .g2048-cell { background: #cdc1b4; border-radius: 3px; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; font-size: 24px; font-weight: bold; color: #776e65; transition: 0.1s; }
+                    
+                    /* Tile Colors */
+                    .t-2 { background: #eee4da; }
+                    .t-4 { background: #ede0c8; }
+                    .t-8 { background: #f2b179; color: #f9f6f2; }
+                    .t-16 { background: #f59563; color: #f9f6f2; }
+                    .t-32 { background: #f67c5f; color: #f9f6f2; }
+                    .t-64 { background: #f65e3b; color: #f9f6f2; }
+                    .t-128 { background: #edcf72; color: #f9f6f2; font-size: 20px; }
+                    .t-256 { background: #edcc61; color: #f9f6f2; font-size: 20px; }
+                    .t-512 { background: #edc850; color: #f9f6f2; font-size: 20px; }
+                    .t-1024 { background: #edc53f; color: #f9f6f2; font-size: 16px; }
+                    .t-2048 { background: #edc22e; color: #f9f6f2; font-size: 16px; }
+
+                    .g2048-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(238, 228, 218, 0.73); display: none; flex-direction: column; align-items: center; justify-content: center; border-radius: 6px; z-index: 10; color: #776e65; font-weight: bold; font-size: 30px; }
+                    .g2048-btn { margin-top: 10px; background: #8f7a66; color: #f9f6f2; border: none; padding: 10px 20px; border-radius: 3px; font-size: 16px; cursor: pointer; }
+                    .g2048-btn:hover { background: #776e65; }
+                </style>
+                <div id="game-__PID__" class="g2048-container" tabindex="0">
+                    <div class="g2048-header">
+                        <div style="font-size: 30px; font-weight: bold; color: #776e65; background:#eee4da; padding: 0 10px; border-radius:4px;">2048</div>
+                        <div class="g2048-score-box"><span class="g2048-score-label">SCORE</span><span id="score-__PID__">0</span></div>
+                    </div>
+                    <div class="g2048-grid" id="grid-__PID__">
+                        <div class="g2048-overlay" id="over-__PID__">
+                            <span id="msg-__PID__">Game Over!</span>
+                            <button class="g2048-btn" onclick="window['rst___PID__']()">Try Again</button>
+                        </div>
+                    </div>
+                    <div style="margin-top: 15px; color: #888; font-size: 12px;">Use Arrow Keys or WASD</div>
+                </div>`,
+                `
+                const gridDiv = document.getElementById('grid-'+pid);
+                const scoreSpan = document.getElementById('score-'+pid);
+                const overlay = document.getElementById('over-'+pid);
+                const msg = document.getElementById('msg-'+pid);
+                const container = document.getElementById('game-'+pid);
+                
+                let board = [];
+                let score = 0;
+                let size = 4;
+
+                // --- Logic ---
+                function init() {
+                    board = Array(size * size).fill(0);
+                    score = 0;
+                    scoreSpan.innerText = '0';
+                    overlay.style.display = 'none';
+                    
+                    // 그리드 셀 생성 (오버레이 제외하고 초기화)
+                    // 기존 오버레이 보존
+                    const ov = overlay.outerHTML;
+                    gridDiv.innerHTML = ''; 
+                    for(let i=0; i<16; i++) {
+                        let c = document.createElement('div');
+                        c.className = 'g2048-cell';
+                        c.id = 'c-'+pid+'-'+i;
+                        gridDiv.appendChild(c);
+                    }
+                    // 오버레이 다시 삽입 (innerHTML을 덮어쓰면 이벤트가 날라갈 수 있어서 주의)
+                    // 여기서는 간단하게 DOM 재구성을 사용
+                    gridDiv.insertAdjacentHTML('beforeend', ov);
+                    // 재삽입된 오버레이에 대한 참조 갱신
+                    const newOver = document.getElementById('over-'+pid);
+                    const newBtn = newOver.querySelector('button');
+                    newBtn.onclick = window['rst_'+pid];
+
+                    addRandom();
+                    addRandom();
+                    draw();
+                    container.focus(); // 시작 시 포커스
+                }
+
+                function draw() {
+                    for(let i=0; i<16; i++) {
+                        const cell = document.getElementById('c-'+pid+'-'+i);
+                        const val = board[i];
+                        cell.innerText = val === 0 ? '' : val;
+                        cell.className = 'g2048-cell' + (val > 0 ? ' t-'+val : '');
+                    }
+                    scoreSpan.innerText = score;
+                    // 오버레이 참조 갱신 (draw 호출 시마다 안전하게)
+                    document.getElementById('over-'+pid).style.display = 'none';
+                }
+
+                function addRandom() {
+                    let empty = [];
+                    board.forEach((v, i) => { if(v===0) empty.push(i); });
+                    if(empty.length === 0) return;
+                    const idx = empty[Math.floor(Math.random() * empty.length)];
+                    board[idx] = Math.random() < 0.9 ? 2 : 4;
+                }
+
+                function operate(row) {
+                    // 1. Filter zeros
+                    let arr = row.filter(val => val);
+                    // 2. Merge
+                    for(let i=0; i<arr.length-1; i++) {
+                        if(arr[i] === arr[i+1]) {
+                            arr[i] *= 2;
+                            score += arr[i];
+                            arr.splice(i+1, 1);
+                        }
+                    }
+                    // 3. Pad zeros
+                    while(arr.length < size) arr.push(0);
+                    return arr;
+                }
+
+                // 방향별 로직
+                function move(dir) {
+                    let rotated = false;
+                    let changed = false;
+                    let newBoard = [...board];
+
+                    // 배열 변환 헬퍼 (인덱스 계산)
+                    // 0: Left, 1: Up, 2: Right, 3: Down
+                    // 로직 단순화를 위해: 모든 방향을 "왼쪽 이동"으로 정규화 -> 처리 -> 복구
+                    
+                    /* 매우 간단한 구현: 각 행/열을 추출해서 operate 돌리고 다시 넣기
+                    */
+                    
+                    let oldBoardStr = JSON.stringify(board);
+
+                    if (dir === 'Left') {
+                        for(let i=0; i<4; i++) {
+                            let row = [board[i*4], board[i*4+1], board[i*4+2], board[i*4+3]];
+                            let newRow = operate(row);
+                            for(let j=0; j<4; j++) board[i*4+j] = newRow[j];
+                        }
+                    } else if (dir === 'Right') {
+                        for(let i=0; i<4; i++) {
+                            let row = [board[i*4], board[i*4+1], board[i*4+2], board[i*4+3]];
+                            row.reverse();
+                            let newRow = operate(row);
+                            newRow.reverse();
+                            for(let j=0; j<4; j++) board[i*4+j] = newRow[j];
+                        }
+                    } else if (dir === 'Up') {
+                        for(let i=0; i<4; i++) {
+                            let col = [board[i], board[i+4], board[i+8], board[i+12]];
+                            let newCol = operate(col);
+                            for(let j=0; j<4; j++) board[i+j*4] = newCol[j];
+                        }
+                    } else if (dir === 'Down') {
+                         for(let i=0; i<4; i++) {
+                            let col = [board[i], board[i+4], board[i+8], board[i+12]];
+                            col.reverse();
+                            let newCol = operate(col);
+                            newCol.reverse();
+                            for(let j=0; j<4; j++) board[i+j*4] = newCol[j];
+                        }
+                    }
+
+                    if(JSON.stringify(board) !== oldBoardStr) {
+                        addRandom();
+                        draw();
+                        checkGameOver();
+                    }
+                }
+
+                function checkGameOver() {
+                    // 2048 도달 체크 (선택 사항, 여기선 계속 진행 가능)
+                    // if(board.includes(2048)) alert("You Win!");
+
+                    if(!board.includes(0)) {
+                        // 꽉 찼을 때 합칠 수 있는지 확인
+                        for(let i=0; i<16; i++) {
+                            const val = board[i];
+                            // 오른쪽 체크
+                            if(i%4 !== 3 && val === board[i+1]) return;
+                            // 아래 체크
+                            if(i<12 && val === board[i+4]) return;
+                        }
+                        // Game Over
+                        document.getElementById('msg-'+pid).innerText = "Game Over";
+                        document.getElementById('over-'+pid).style.display = 'flex';
+                    }
+                }
+
+                window['rst_'+pid] = init;
+
+                // 이벤트 리스너
+                container.onkeydown = (e) => {
+                    if(['ArrowLeft','a'].includes(e.key)) move('Left');
+                    else if(['ArrowRight','d'].includes(e.key)) move('Right');
+                    else if(['ArrowUp','w'].includes(e.key)) move('Up');
+                    else if(['ArrowDown','s'].includes(e.key)) move('Down');
+                };
+
+                // 게임 시작
+                init();
+                `
+            );
+
+            return apps;
+        }
+
+        FS.init();
+        setInterval(() => document.getElementById('clock').innerText = new Date().toTimeString().substring(0,5), 1000);
+    </script>
+</body>
+</html>
