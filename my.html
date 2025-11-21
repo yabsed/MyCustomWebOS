@@ -2,14 +2,21 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Web OS v15.2 (Fix Editor Glitch)</title>
+    <title>Web OS v16.0 (Explorer Overhaul)</title>
     <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
     <style>
         /* --- 시스템 코어 스타일 --- */
         body { margin: 0; padding: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop') no-repeat center center fixed; background-size: cover; height: 100vh; user-select: none; color: #e0e0e0; }
         
-        /* 바탕화면 아이콘 */
-        .desktop-icons { position: absolute; top: 15px; left: 15px; display: flex; flex-direction: column; gap: 20px; z-index: 10; }
+        /* [개선 1] 바탕화면 아이콘 반응형 처리 */
+        /* 높이가 부족하면 자동으로 오른쪽 열로 넘어갑니다. */
+        .desktop-icons { 
+            position: absolute; top: 15px; left: 15px; bottom: 60px; /* 하단 작업표시줄 공간 확보 */
+            display: flex; flex-direction: column; flex-wrap: wrap; /* 세로 정렬 후 넘치면 줄바꿈 */
+            align-content: flex-start; /* 왼쪽부터 채움 */
+            gap: 15px; z-index: 10; 
+        }
+
         .icon { width: 72px; text-align: center; cursor: pointer; padding: 8px; border-radius: 8px; color: white; font-size: 12px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); transition: 0.2s; background: rgba(255,255,255,0.1); backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.1); }
         .icon:hover { background-color: rgba(255, 255, 255, 0.25); transform: scale(1.05); }
         .icon-img { font-size: 32px; display: block; margin-bottom: 5px; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.5)); }
@@ -38,7 +45,7 @@
         
         input, button, textarea { font-family: 'Consolas', 'JetBrains Mono', monospace; outline: none; }
 
-        /* [수정 1] Syntax Highlighting - 충돌 방지를 위해 class 대신 c 속성 사용 */
+        /* 에디터 하이라이팅 스타일 (c 속성 사용) */
         span[c="token-comment"] { color: #6272a4; font-style: italic; } 
         span[c="token-string"] { color: #f1fa8c; }
         span[c="token-keyword"] { color: #ff79c6; font-weight: bold; } 
@@ -63,7 +70,7 @@
 
     <script>
         const FS = {
-            key: 'webos_v16_fix2', // 키 변경으로 캐시 초기화
+            key: 'webos_v16_final', 
             init: () => {
                 if(!localStorage.getItem(FS.key)) {
                     const systemApps = AppsInstaller();
@@ -72,8 +79,7 @@
                         { name: 'bin', type: 'dir', parent: '/', path: '/bin' },
                         { name: 'home', type: 'dir', parent: '/', path: '/home' },
                         { name: 'user', type: 'dir', parent: '/home', path: '/home/user' },
-                        { name: 'welcome.js', type: 'file', parent: '/home/user', path: '/home/user/welcome.js', content: 'console.log("Welcome to Web OS!");\nconsole.log("에디터 버그가 수정되었습니다.");' },
-                        // 파이썬 테스트 코드
+                        { name: 'welcome.js', type: 'file', parent: '/home/user', path: '/home/user/welcome.js', content: 'console.log("Welcome to Web OS v16!");\nconsole.log("파일 탐색기가 대폭 개선되었습니다.");' },
                         { name: 'test.py', type: 'file', parent: '/home/user', path: '/home/user/test.py', content: 'class Snake:\n    def __init__(self):\n        print("🐍 Hello from Python!")\n\nimport math\nprint(f"Pi is approx {math.pi:.4f}")\nprint(f"Calculated: {100 * 25}")' },
                         { name: 'hello.bf', type: 'file', parent: '/home/user', path: '/home/user/hello.bf', content: '++++++++++[>+++++++>++++++++++>+++>+<<<<-]>++.>+.+++++++..+++.>++.<<+++++++++++++++.>.+++.------.--------.>+.>.' },
                         ...systemApps
@@ -223,90 +229,145 @@
 
             add('terminal', { title: 'Terminal', icon: '💻', width: 650, height: 450, bg: 'transparent' },
                 `<style>
-                    .term-container { 
-                        display: flex; flex-direction: column; height: 100%; 
-                        background: rgba(18, 18, 18, 0.92); backdrop-filter: blur(12px);
-                        padding: 12px; box-sizing: border-box;
-                        font-family: 'Consolas', 'Menlo', 'Courier New', monospace;
-                        color: #f8f8f2; font-size: 14px;
-                    }
+                    .term-container { display: flex; flex-direction: column; height: 100%; background: rgba(18, 18, 18, 0.92); backdrop-filter: blur(12px); padding: 12px; box-sizing: border-box; font-family: 'Consolas', 'Menlo', 'Courier New', monospace; color: #f8f8f2; font-size: 14px; }
                     .term-out { flex-grow: 1; overflow-y: auto; margin-bottom: 10px; }
                     .term-out::-webkit-scrollbar { width: 8px; }
                     .term-out::-webkit-scrollbar-track { background: transparent; }
                     .term-out::-webkit-scrollbar-thumb { background: #44475a; border-radius: 4px; }
                     .term-input-area { display: flex; align-items: center; }
                     .prompt { margin-right: 8px; white-space: nowrap; }
-                    .term-input { 
-                        flex-grow: 1; background: transparent; border: none; outline: none; 
-                        color: #f8f8f2; font-family: inherit; font-size: inherit; caret-color: #ff79c6;
-                    }
-                    .dr-green { color: #50fa7b; font-weight: bold; }
-                    .dr-pink { color: #ff79c6; font-weight: bold; }
-                    .dr-cyan { color: #8be9fd; }
-                    .dr-purple { color: #bd93f9; }
-                    .cmd-line { margin-bottom: 2px; line-height: 1.4; }
+                    .term-input { flex-grow: 1; background: transparent; border: none; outline: none; color: #f8f8f2; font-family: inherit; font-size: inherit; caret-color: #ff79c6; }
+                    .dr-green { color: #50fa7b; font-weight: bold; } .dr-pink { color: #ff79c6; font-weight: bold; } .dr-cyan { color: #8be9fd; } .dr-purple { color: #bd93f9; } .cmd-line { margin-bottom: 2px; line-height: 1.4; }
                 </style>
                 <div class="term-container" onclick="document.getElementById('in-__PID__').focus()">
                     <div id="out-__PID__" class="term-out">
-                        <div class="cmd-line"><span class="dr-purple">WebOS v15.2 Kernel</span> initialized...</div>
+                        <div class="cmd-line"><span class="dr-purple">WebOS v16 Kernel</span> initialized...</div>
                         <div class="cmd-line">Type <span class="dr-green">'help'</span> to see commands.</div><br>
                     </div>
-                    <div class="term-input-area">
-                        <span id="pmt-__PID__" class="prompt"></span>
-                        <input id="in-__PID__" class="term-input" autocomplete="off" spellcheck="false">
-                    </div>
+                    <div class="term-input-area"><span id="pmt-__PID__" class="prompt"></span><input id="in-__PID__" class="term-input" autocomplete="off" spellcheck="false"></div>
                 </div>`,
                 `const out=document.getElementById('out-'+pid);const inp=document.getElementById('in-'+pid);const pmt=document.getElementById('pmt-'+pid);let cwd='/home/user';const print=(t,type='normal')=>{const d=document.createElement('div');d.className='cmd-line';if(type==='err')d.style.color='#ff5555';else if(type==='info')d.style.color='#8be9fd';else d.style.color='#f8f8f2';d.textContent=t;out.appendChild(d);out.scrollTop=out.scrollHeight;};const updatePmt=()=>{pmt.innerHTML='<span class="dr-green">user</span>@<span class="dr-pink">webos</span>:<span class="dr-cyan">'+cwd.replace('/home/user','~')+'</span>$';};updatePmt();inp.onkeydown=(e)=>{if(e.key==='Enter'){const v=inp.value.trim();const cmdLine=document.createElement('div');cmdLine.className='cmd-line';cmdLine.innerHTML='<span class="dr-green">user</span>@<span class="dr-pink">webos</span>:<span class="dr-cyan">'+cwd.replace('/home/user','~')+'</span>$ '+v;out.appendChild(cmdLine);inp.value='';if(!v){out.scrollTop=out.scrollHeight;return;}if(v.startsWith('echo')&&v.includes('>')){const parts=v.split('>');const content=parts[0].replace(/^echo\\s+/,'').replace(/['"]/g,'').trim();const target=parts[1].trim();if(target){FS.write(FS.resolve(cwd,target),'file',content);return;}}const args=v.split(' ');const cmd=args.shift();if(cmd==='ls'){const items=FS.ls(args[0]?FS.resolve(cwd,args[0]):cwd);const html=items.map(f=>f.type==='dir'?'<span class="dr-cyan" style="font-weight:bold">'+f.name+'/</span>':'<span style="color:#f8f8f2">'+f.name+'</span>').join('&nbsp;&nbsp;');const d=document.createElement('div');d.className='cmd-line';d.innerHTML=html;out.appendChild(d);out.scrollTop=out.scrollHeight;}else if(cmd==='pwd')print(cwd);else if(cmd==='cd'){const t=FS.resolve(cwd,args[0]||'/home/user');if(FS.getItem(t)?.type==='dir'){cwd=t;updatePmt();}else print('No such directory','err');}else if(cmd==='mkdir'){if(args[0]){FS.write(FS.resolve(cwd,args[0]),'dir');}else print('Usage: mkdir [name]','err');}else if(cmd==='rm'){if(args[0])FS.write(FS.resolve(cwd,args[0]),'delete');else print('Usage: rm [file]','err');}else if(cmd==='touch'){if(args[0]){const target=FS.resolve(cwd,args[0]);if(!FS.getItem(target)){FS.write(target,'file','');}}else{print('Usage: touch [file]','err');}}else if(cmd==='cat'){const f=FS.getItem(FS.resolve(cwd,args[0]));if(f)print(f.content);else print('File not found','err');}else if(cmd==='clear'){out.innerHTML='';}else if(cmd==='help'){print('Commands: ls, cd, pwd, touch, mkdir, rm, cat, cp, mv, echo, clear, nano','info');print('Runtime: node [file], python [file], bf [file]','info');}else if(cmd==='nano'){let p=args[0]?FS.resolve(cwd,args[0]):null;let f=FS.getItem(p)||{path:p,content:'',name:args[0]};OS.exec('/bin/notepad.app',{file:f});}else if(cmd==='python'||cmd==='py'){const f=FS.getItem(FS.resolve(cwd,args[0]));if(f)OS.runCode('python',f.content,(msg,type)=>print(msg,type));else print('File not found','err');}else if(cmd==='node'||cmd==='js'){const f=FS.getItem(FS.resolve(cwd,args[0]));if(f)OS.runCode('js',f.content,(msg,type)=>print(msg,type));else print('File not found','err');}else if(cmd==='bf'){const f=FS.getItem(FS.resolve(cwd,args[0]));if(f)OS.runCode('bf',f.content,(msg)=>print(msg));else print('File not found','err');}else if(cmd==='cp'){if(!args[0]||!args[1])return print('Usage: cp [src] [dest]','err');const s=FS.getItem(FS.resolve(cwd,args[0]));if(s)FS.write(FS.resolve(cwd,args[1]),s.type,s.content);else print('Source not found','err');}else if(cmd==='mv'){if(!args[0]||!args[1])return print('Usage: mv [src] [dest]','err');const sp=FS.resolve(cwd,args[0]);const s=FS.getItem(sp);if(s){FS.write(FS.resolve(cwd,args[1]),s.type,s.content);FS.write(sp,'delete');}else print('Source not found','err');}else if(cmd==='echo'){print(v.replace(/^echo\\s+/,'').replace(/['"]/g,''));}else print('Command not found: '+cmd,'err');out.scrollTop=out.scrollHeight;}};`
             );
 
-            // [수정 2] 에디터: 커서 정렬 오류 및 하이라이팅 충돌 수정
             add('notepad', { title: 'Code Editor', icon: '📝', width: 600, height: 450, bg:'#1e1e1e' },
                 `<style>
                     .ne-layout { display: flex; flex-direction: column; height: 100%; position: relative; }
                     .ne-toolbar { display: flex; gap: 8px; background: #252526; padding: 6px 10px; border-bottom: 1px solid #333; z-index: 10; }
                     .ne-btn { background: #333; border: 1px solid #444; color: #eee; cursor: pointer; padding: 4px 10px; font-size: 12px; border-radius: 4px; transition:0.2s; }
                     .ne-btn:hover { background: #444; }
-                    .ne-run { color: #50fa7b; border-color: #2e5c3d; }
-                    .ne-run:hover { background: #2e5c3d; }
+                    .ne-run { color: #50fa7b; border-color: #2e5c3d; } .ne-run:hover { background: #2e5c3d; }
                     .ne-body { flex-grow: 1; display: flex; position: relative; overflow: hidden; }
                     .line-numbers { width: 45px; background: #1e1e1e; color: #555; text-align: right; padding: 10px 10px 10px 0; font-family: 'Consolas', monospace; font-size: 14px; line-height: 1.5; border-right: 1px solid #333; box-sizing: border-box; overflow: hidden; }
                     .editor-stack { flex-grow: 1; position: relative; overflow: hidden; background: #1e1e1e; }
-                    /* [수정 3] white-space: pre !important 적용하여 줄바꿈 방지 -> 커서 불일치 해결 */
-                    .code-layer { 
-                        position: absolute; top: 0; left: 0; width: 100%; height: 100%; margin: 0; 
-                        padding: 10px; padding-bottom: 50px; border: none; box-sizing: border-box; 
-                        font-family: 'Consolas', monospace; font-size: 14px; line-height: 1.5; 
-                        white-space: pre !important; overflow: auto; tab-size: 4; 
-                    }
+                    .code-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; margin: 0; padding: 10px; padding-bottom: 50px; border: none; box-sizing: border-box; font-family: 'Consolas', monospace; font-size: 14px; line-height: 1.5; white-space: pre !important; overflow: auto; tab-size: 4; }
                     #highlight-__PID__ { color: #d4d4d4; z-index: 1; pointer-events: none; }
                     #input-__PID__ { color: transparent; background: transparent; z-index: 2; caret-color: white; outline: none; resize: none; }
                     .ne-status { background: #007acc; color: white; font-size: 11px; padding: 3px 10px; z-index: 10; display:flex; justify-content:space-between;}
                 </style>
                 <div class="ne-layout">
-                    <div class="ne-toolbar">
-                        <button class="ne-btn" onclick="window['neSave___PID__']()">💾 Save</button>
-                        <button class="ne-btn ne-run" onclick="window['neRun___PID__']()">▶ Run</button>
-                    </div>
-                    <div class="ne-body">
-                        <div id="lines-__PID__" class="line-numbers">1</div>
-                        <div class="editor-stack">
-                            <pre id="highlight-__PID__" class="code-layer"></pre>
-                            <textarea id="input-__PID__" class="code-layer" spellcheck="false" 
-                                      oninput="window['neUpdate___PID__']()" 
-                                      onscroll="window['neScroll___PID__']()"
-                                      onkeydown="window['neKey___PID__'](event)"></textarea>
-                        </div>
-                    </div>
+                    <div class="ne-toolbar"><button class="ne-btn" onclick="window['neSave___PID__']()">💾 Save</button><button class="ne-btn ne-run" onclick="window['neRun___PID__']()">▶ Run</button></div>
+                    <div class="ne-body"><div id="lines-__PID__" class="line-numbers">1</div><div class="editor-stack"><pre id="highlight-__PID__" class="code-layer"></pre><textarea id="input-__PID__" class="code-layer" spellcheck="false" oninput="window['neUpdate___PID__']()" onscroll="window['neScroll___PID__']()" onkeydown="window['neKey___PID__'](event)"></textarea></div></div>
                     <div class="ne-status"><span id="path-__PID__">Untitled</span><span>JavaScript</span></div>
                 </div>`,
-                `const input=document.getElementById('input-'+pid);const highlight=document.getElementById('highlight-'+pid);const lines=document.getElementById('lines-'+pid);const pathDisplay=document.getElementById('path-'+pid);let currentPath=args.file?args.file.path:null;if(args.file){input.value=args.file.content;currentPath=args.file.path;pathDisplay.innerText=currentPath;}const escapeHTML=(text)=>text.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");const updateAll=()=>{let code=input.value;code=escapeHTML(code);
-                // [수정 4] class 속성 대신 c 속성을 사용하여 키워드 충돌 방지
-                code=code.replace(/(\\/\\/.*)/g,'<span c="token-comment">$1</span>');code=code.replace(/(".*?"|'.*?')/g,'<span c="token-string">$1</span>');const keywords='const|let|var|if|else|for|while|function|return|new|try|catch|console|alert|document|window|import|from|def|print|class|self';code=code.replace(new RegExp('\\\\b('+keywords+')\\\\b','g'),'<span c="token-keyword">$1</span>');code=code.replace(/\\b(\\d+)\\b/g,'<span c="token-number">$1</span>');code=code.replace(/(\\w+)(?=\\()/g,'<span c="token-func">$1</span>');if(code.endsWith('\\n'))code+=' ';highlight.innerHTML=code;const lineCount=input.value.split('\\n').length;lines.innerHTML=Array(lineCount).fill(0).map((_,i)=>i+1).join('<br>');};window['neScroll_'+pid]=()=>{highlight.scrollTop=input.scrollTop;highlight.scrollLeft=input.scrollLeft;lines.scrollTop=input.scrollTop;};window['neKey_'+pid]=(e)=>{if(e.key==='Tab'){e.preventDefault();const s=input.selectionStart;input.value=input.value.substring(0,s)+'    '+input.value.substring(input.selectionEnd);input.selectionStart=input.selectionEnd=s+4;updateAll();}};window['neSave_'+pid]=()=>{if(!currentPath){const p=prompt('저장 경로:');if(!p)return;currentPath=p;}FS.write(currentPath,'file',input.value);pathDisplay.innerText=currentPath;alert('Saved: '+currentPath);};window['neRun_'+pid]=async()=>{let ext='js';if(currentPath&&currentPath.includes('.'))ext=currentPath.split('.').pop();let logs="";await OS.runCode(ext,input.value,(msg)=>{console.log(msg);logs+=msg+"\\n";});if(logs)alert("Output:\\n"+logs);else if(ext==='py')alert("Python script executed successfully (no output)");};window['neUpdate_'+pid]=updateAll;updateAll();`
+                `const input=document.getElementById('input-'+pid);const highlight=document.getElementById('highlight-'+pid);const lines=document.getElementById('lines-'+pid);const pathDisplay=document.getElementById('path-'+pid);let currentPath=args.file?args.file.path:null;if(args.file){input.value=args.file.content;currentPath=args.file.path;pathDisplay.innerText=currentPath;}const escapeHTML=(text)=>text.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");const updateAll=()=>{let code=input.value;code=escapeHTML(code);code=code.replace(/(\\/\\/.*)/g,'<span c="token-comment">$1</span>');code=code.replace(/(".*?"|'.*?')/g,'<span c="token-string">$1</span>');const keywords='const|let|var|if|else|for|while|function|return|new|try|catch|console|alert|document|window|import|from|def|print|class|self';code=code.replace(new RegExp('\\\\b('+keywords+')\\\\b','g'),'<span c="token-keyword">$1</span>');code=code.replace(/\\b(\\d+)\\b/g,'<span c="token-number">$1</span>');code=code.replace(/(\\w+)(?=\\()/g,'<span c="token-func">$1</span>');if(code.endsWith('\\n'))code+=' ';highlight.innerHTML=code;const lineCount=input.value.split('\\n').length;lines.innerHTML=Array(lineCount).fill(0).map((_,i)=>i+1).join('<br>');};window['neScroll_'+pid]=()=>{highlight.scrollTop=input.scrollTop;highlight.scrollLeft=input.scrollLeft;lines.scrollTop=input.scrollTop;};window['neKey_'+pid]=(e)=>{if(e.key==='Tab'){e.preventDefault();const s=input.selectionStart;input.value=input.value.substring(0,s)+'    '+input.value.substring(input.selectionEnd);input.selectionStart=input.selectionEnd=s+4;updateAll();}};window['neSave_'+pid]=()=>{if(!currentPath){const p=prompt('저장 경로:');if(!p)return;currentPath=p;}FS.write(currentPath,'file',input.value);pathDisplay.innerText=currentPath;alert('Saved: '+currentPath);};window['neRun_'+pid]=async()=>{let ext='js';if(currentPath&&currentPath.includes('.'))ext=currentPath.split('.').pop();let logs="";await OS.runCode(ext,input.value,(msg)=>{console.log(msg);logs+=msg+"\\n";});if(logs)alert("Output:\\n"+logs);else if(ext==='py')alert("Python script executed successfully (no output)");};window['neUpdate_'+pid]=updateAll;updateAll();`
+            );
+
+            // [개선 2] 파일 관리자: 디자인 및 기능 대폭 강화 (사이드바, 그리드, 툴바)
+            add('explorer', { title: 'File Explorer', icon: '📁', width: 700, height: 500, bg:'#1e1e1e' }, 
+                `<style>
+                    .fx-layout { display: flex; height: 100%; color: #e0e0e0; }
+                    .fx-sidebar { width: 140px; background: #252526; border-right: 1px solid #333; display: flex; flex-direction: column; padding: 10px; }
+                    .fx-side-item { padding: 8px 10px; cursor: pointer; border-radius: 4px; font-size: 13px; display: flex; align-items: center; gap: 8px; color: #ccc; margin-bottom: 2px;}
+                    .fx-side-item:hover { background: #37373d; color: white; }
+                    .fx-main { flex-grow: 1; display: flex; flex-direction: column; }
+                    .fx-toolbar { height: 40px; display: flex; align-items: center; padding: 0 10px; border-bottom: 1px solid #333; gap: 8px; background: #2d2d2d; }
+                    .fx-btn { background: transparent; border: 1px solid transparent; color: #fff; border-radius: 3px; cursor: pointer; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+                    .fx-btn:hover { background: #3e3e42; }
+                    .fx-path-box { flex-grow: 1; background: #1e1e1e; border: 1px solid #3e3e42; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 13px; }
+                    .fx-content { flex-grow: 1; overflow-y: auto; padding: 10px; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 5px; }
+                    .fx-item { width: 80px; height: 90px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 5px; border-radius: 4px; cursor: pointer; border: 1px solid transparent; }
+                    .fx-item:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+                    .fx-item.selected { background: rgba(0, 122, 204, 0.2); border-color: rgba(0, 122, 204, 0.4); }
+                    .fx-icon { font-size: 32px; margin-bottom: 8px; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.3)); }
+                    .fx-name { font-size: 12px; text-align: center; word-break: break-word; line-height: 1.3; color: #ddd; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;}
+                    .fx-status { height: 24px; background: #007acc; display: flex; align-items: center; padding: 0 10px; font-size: 11px; color: white; border-top: 1px solid #005a9e; }
+                </style>
+                <div class="fx-layout">
+                    <div class="fx-sidebar">
+                        <div style="font-size:11px; font-weight:bold; color:#888; margin-bottom:5px; padding-left:5px;">FAVORITES</div>
+                        <div class="fx-side-item" onclick="window['nav___PID__']('/home/user')">🏠 Home</div>
+                        <div class="fx-side-item" onclick="window['nav___PID__']('/')">💻 Root</div>
+                        <div class="fx-side-item" onclick="window['nav___PID__']('/bin')">⚙️ Bin</div>
+                    </div>
+                    <div class="fx-main">
+                        <div class="fx-toolbar">
+                            <button class="fx-btn" onclick="window['up___PID__']()">⬆</button>
+                            <button class="fx-btn" onclick="window['ref___PID__']()">🔄</button>
+                            <input id="p-__PID__" class="fx-path-box" readonly>
+                        </div>
+                        <div id="l-__PID__" class="fx-content"></div>
+                        <div class="fx-status" id="s-__PID__">Ready</div>
+                    </div>
+                </div>`, 
+                `let cwd='/home/user';
+                const render = () => {
+                    const l = document.getElementById('l-'+pid);
+                    const p = document.getElementById('p-'+pid);
+                    const s = document.getElementById('s-'+pid);
+                    l.innerHTML = '';
+                    p.value = cwd;
+                    
+                    const files = FS.ls(cwd);
+                    s.innerText = files.length + ' items';
+
+                    if(files.length === 0) {
+                        l.innerHTML = '<div style="width:100%; text-align:center; color:#555; margin-top:50px;">Folder is empty</div>';
+                        return;
+                    }
+
+                    files.forEach(f => {
+                        const div = document.createElement('div');
+                        div.className = 'fx-item';
+                        
+                        // 아이콘 결정 로직
+                        let icon = '📄';
+                        if (f.type === 'dir') icon = '📁';
+                        else if (f.name.endsWith('.js')) icon = '📜';
+                        else if (f.name.endsWith('.py')) icon = '🐍';
+                        else if (f.name.endsWith('.app')) icon = '📦';
+                        else if (f.name.endsWith('.png') || f.name.endsWith('.jpg')) icon = '🖼️';
+                        
+                        div.innerHTML = '<div class="fx-icon">' + icon + '</div><div class="fx-name">' + f.name + '</div>';
+                        
+                        div.onclick = () => {
+                            document.querySelectorAll('#l-'+pid+' .fx-item').forEach(e => e.classList.remove('selected'));
+                            div.classList.add('selected');
+                            s.innerText = 'Selected: ' + f.name;
+                        };
+                        
+                        div.ondblclick = () => {
+                            if (f.type === 'dir') {
+                                cwd = f.path;
+                                render();
+                            } else if (f.name.endsWith('.app')) {
+                                OS.exec(f.path);
+                            } else {
+                                OS.exec('/bin/notepad.app', { file: f });
+                            }
+                        };
+                        l.appendChild(div);
+                    });
+                };
+
+                window['nav_'+pid] = (path) => { cwd = path; render(); };
+                window['up_'+pid] = () => { cwd = FS.resolve(cwd, '..'); render(); };
+                window['ref_'+pid] = render;
+                
+                render();`
             );
 
             add('calc', { title: 'Calc', icon: '🧮', width: 260, height: 380, bg:'#202020' }, `<style>.cl-layout{display:flex;flex-direction:column;height:100%;padding:10px;}.cl-screen{width:100%;height:60px;background:#333;color:white;border:none;text-align:right;font-size:28px;margin-bottom:10px;border-radius:6px;padding:5px;}.cl-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;flex-grow:1;}button{background:#3a3a3a;color:white;border:none;border-radius:6px;font-size:18px;cursor:pointer;transition:0.1s;}button:hover{filter:brightness(1.2);}button:active{transform:scale(0.95);}.op{background:#ff9f0a;}.ac{background:#ff453a;}</style><div class="cl-layout"><input id="d-__PID__" class="cl-screen" value="0" readonly><div class="cl-grid"><button class="ac" onclick="window['c___PID__']('C')">C</button><button class="op" onclick="window['c___PID__']('/')">/</button><button class="op" onclick="window['c___PID__']('*')">×</button><button class="op" onclick="window['c___PID__']('-')">-</button><button onclick="window['c___PID__']('7')">7</button><button onclick="window['c___PID__']('8')">8</button><button onclick="window['c___PID__']('9')">9</button><button class="op" onclick="window['c___PID__']('+')">+</button><button onclick="window['c___PID__']('4')">4</button><button onclick="window['c___PID__']('5')">5</button><button onclick="window['c___PID__']('6')">6</button><button class="op" onclick="window['c___PID__']('=')" style="grid-row:span 2">=</button><button onclick="window['c___PID__']('1')">1</button><button onclick="window['c___PID__']('2')">2</button><button onclick="window['c___PID__']('3')">3</button><button onclick="window['c___PID__']('0')" style="grid-column:span 2">0</button><button onclick="window['c___PID__']('.')">.</button></div></div>`,`const d=document.getElementById('d-'+pid);window['c_'+pid]=v=>{if(v=='C')d.value='0';else if(v=='=')try{d.value=eval(d.value)}catch{d.value='E'}else d.value=d.value=='0'?v:d.value+v}`);
             add('browser', { title: 'Internet', icon: '🌐', width: 800, height: 550 }, `<div style="display:flex;flex-direction:column;height:100%;"><div style="padding:8px;background:#333;display:flex;gap:8px;"><input id="u-__PID__" value="https://ko.m.wikipedia.org" style="flex-grow:1;background:#222;color:white;border:none;padding:5px;border-radius:4px;"><button onclick="document.getElementById('f-__PID__').src=document.getElementById('u-__PID__').value" style="background:#007acc;color:white;border:none;padding:5px 10px;border-radius:4px;cursor:pointer;">Go</button></div><iframe id="f-__PID__" src="https://ko.m.wikipedia.org" style="flex-grow:1;border:none;background:white;"></iframe></div>`, ``);
-            add('explorer', { title: 'Explorer', icon: '📁', width: 600, height: 450, bg:'#252526' }, `<div style="display:flex;flex-direction:column;height:100%;"><div style="padding:8px;background:#333;display:flex;gap:8px;"><button onclick="window['up___PID__']()" style="background:#444;color:white;border:none;border-radius:4px;cursor:pointer;padding:5px;">⬆</button><input id="p-__PID__" style="flex-grow:1;background:#222;color:white;border:none;padding:5px;border-radius:4px;" readonly><button onclick="window['ref___PID__']()" style="background:#444;color:white;border:none;border-radius:4px;cursor:pointer;padding:5px;">🔄</button></div><div id="l-__PID__" style="flex-grow:1;overflow:auto;padding:5px;"></div></div>`, `let cwd='/home/user';const r=()=>{document.getElementById('p-'+pid).value=cwd;const l=document.getElementById('l-'+pid);l.innerHTML='';FS.ls(cwd).forEach(f=>{const d=document.createElement('div');d.style.padding='8px';d.style.cursor='pointer';d.style.color='#e0e0e0';d.style.borderBottom='1px solid #333';d.style.display='flex';d.style.alignItems='center';d.innerHTML=(f.type=='dir'?'<span style="font-size:18px;margin-right:8px;">📁</span>':'<span style="font-size:18px;margin-right:8px;">📄</span>')+f.name;d.onmouseover=()=>{d.style.background='#37373d'};d.onmouseout=()=>{d.style.background='transparent'};d.ondblclick=()=>{if(f.type=='dir'){cwd=f.path;r();}else if(f.name.endsWith('.app'))OS.exec(f.path);else OS.exec('/bin/notepad.app',{file:f})};l.appendChild(d)})};window['up_'+pid]=()=>{cwd=FS.resolve(cwd,'..');r()};window['ref_'+pid]=r;r();`);
             add('2048', { title: '2048', icon: '🎮', width: 360, height: 480, bg: '#202020' }, `<style>.g2048-container{display:flex;flex-direction:column;height:100%;padding:20px;align-items:center;user-select:none;outline:none;}.g2048-header{display:flex;justify-content:space-between;width:100%;margin-bottom:15px;align-items:center;}.g2048-score-box{background:#bbada0;color:#eee4da;padding:5px 15px;border-radius:6px;font-weight:bold;text-align:center;}.g2048-score-label{font-size:11px;color:#eee4da99;display:block;}.g2048-grid{display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(4,1fr);gap:10px;background:#bbada0;padding:10px;border-radius:6px;width:280px;height:280px;box-sizing:border-box;position:relative;}.g2048-cell{background:#cdc1b4;border-radius:3px;width:100%;height:100%;display:flex;justify-content:center;align-items:center;font-size:24px;font-weight:bold;color:#776e65;transition:0.1s;}.t-2{background:#eee4da;}.t-4{background:#ede0c8;}.t-8{background:#f2b179;color:#f9f6f2;}.t-16{background:#f59563;color:#f9f6f2;}.t-32{background:#f67c5f;color:#f9f6f2;}.t-64{background:#f65e3b;color:#f9f6f2;}.t-128{background:#edcf72;color:#f9f6f2;font-size:20px;}.t-256{background:#edcc61;color:#f9f6f2;font-size:20px;}.t-512{background:#edc850;color:#f9f6f2;font-size:20px;}.t-1024{background:#edc53f;color:#f9f6f2;font-size:16px;}.t-2048{background:#edc22e;color:#f9f6f2;font-size:16px;}.g2048-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(238,228,218,0.73);display:none;flex-direction:column;align-items:center;justify-content:center;border-radius:6px;z-index:10;color:#776e65;font-weight:bold;font-size:30px;}.g2048-btn{margin-top:10px;background:#8f7a66;color:#f9f6f2;border:none;padding:10px 20px;border-radius:3px;font-size:16px;cursor:pointer;}.g2048-btn:hover{background:#776e65;}</style><div id="game-__PID__" class="g2048-container" tabindex="0"><div class="g2048-header"><div style="font-size:30px;font-weight:bold;color:#776e65;background:#eee4da;padding:0 10px;border-radius:4px;">2048</div><div class="g2048-score-box"><span class="g2048-score-label">SCORE</span><span id="score-__PID__">0</span></div></div><div class="g2048-grid" id="grid-__PID__"><div class="g2048-overlay" id="over-__PID__"><span id="msg-__PID__">Game Over!</span><button class="g2048-btn" onclick="window['rst___PID__']()">Try Again</button></div></div><div style="margin-top:15px;color:#888;font-size:12px;">Use Arrow Keys or WASD</div></div>`,`const gridDiv=document.getElementById('grid-'+pid);const scoreSpan=document.getElementById('score-'+pid);const overlay=document.getElementById('over-'+pid);const msg=document.getElementById('msg-'+pid);const container=document.getElementById('game-'+pid);let board=[];let score=0;let size=4;function init(){board=Array(size*size).fill(0);score=0;scoreSpan.innerText='0';overlay.style.display='none';const ov=overlay.outerHTML;gridDiv.innerHTML='';for(let i=0;i<16;i++){let c=document.createElement('div');c.className='g2048-cell';c.id='c-'+pid+'-'+i;gridDiv.appendChild(c);}gridDiv.insertAdjacentHTML('beforeend',ov);const newOver=document.getElementById('over-'+pid);const newBtn=newOver.querySelector('button');newBtn.onclick=window['rst_'+pid];addRandom();addRandom();draw();container.focus();}function draw(){for(let i=0;i<16;i++){const cell=document.getElementById('c-'+pid+'-'+i);const val=board[i];cell.innerText=val===0?'':val;cell.className='g2048-cell'+(val>0?' t-'+val:'');}scoreSpan.innerText=score;document.getElementById('over-'+pid).style.display='none';}function addRandom(){let empty=[];board.forEach((v,i)=>{if(v===0)empty.push(i);});if(empty.length===0)return;const idx=empty[Math.floor(Math.random()*empty.length)];board[idx]=Math.random()<0.9?2:4;}function operate(row){let arr=row.filter(val=>val);for(let i=0;i<arr.length-1;i++){if(arr[i]===arr[i+1]){arr[i]*=2;score+=arr[i];arr.splice(i+1,1);}}while(arr.length<size)arr.push(0);return arr;}function move(dir){let oldBoardStr=JSON.stringify(board);if(dir==='Left'){for(let i=0;i<4;i++){let row=[board[i*4],board[i*4+1],board[i*4+2],board[i*4+3]];let newRow=operate(row);for(let j=0;j<4;j++)board[i*4+j]=newRow[j];}}else if(dir==='Right'){for(let i=0;i<4;i++){let row=[board[i*4],board[i*4+1],board[i*4+2],board[i*4+3]];row.reverse();let newRow=operate(row);newRow.reverse();for(let j=0;j<4;j++)board[i*4+j]=newRow[j];}}else if(dir==='Up'){for(let i=0;i<4;i++){let col=[board[i],board[i+4],board[i+8],board[i+12]];let newCol=operate(col);for(let j=0;j<4;j++)board[i+j*4]=newCol[j];}}else if(dir==='Down'){for(let i=0;i<4;i++){let col=[board[i],board[i+4],board[i+8],board[i+12]];col.reverse();let newCol=operate(col);newCol.reverse();for(let j=0;j<4;j++)board[i+j*4]=newCol[j];}}if(JSON.stringify(board)!==oldBoardStr){addRandom();draw();checkGameOver();}}function checkGameOver(){if(!board.includes(0)){for(let i=0;i<16;i++){const val=board[i];if(i%4!==3&&val===board[i+1])return;if(i<12&&val===board[i+4])return;}document.getElementById('msg-'+pid).innerText="Game Over";document.getElementById('over-'+pid).style.display='flex';}}window['rst_'+pid]=init;container.onkeydown=(e)=>{if(['ArrowLeft','a'].includes(e.key))move('Left');else if(['ArrowRight','d'].includes(e.key))move('Right');else if(['ArrowUp','w'].includes(e.key))move('Up');else if(['ArrowDown','s'].includes(e.key))move('Down');};init();`);
 
             return apps;
