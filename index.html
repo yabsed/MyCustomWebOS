@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Web OS v17.2 (Code Studio)</title>
+    <title>Web OS v21</title>
     <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
     <style>
         /* --- 시스템 코어 스타일 --- */
@@ -61,6 +61,8 @@
         <div class="icon" ondblclick="OS.exec('/bin/calc.app')"><span class="icon-img">🧮</span>계산기</div>
         <div class="icon" ondblclick="OS.exec('/bin/2048.app')"><span class="icon-img">🎮</span>2048</div>
         <div class="icon" ondblclick="OS.exec('/bin/taskmgr.app')"><span class="icon-img">📊</span>작업 관리자</div>
+        <div class="icon" ondblclick="OS.exec('/bin/slides.app')"><span class="icon-img">📽️</span>슬라이드</div>
+        
     </div>
 
     <div class="taskbar" id="taskbar">
@@ -69,7 +71,7 @@
 
     <script>
         const FS = {
-            key: 'webos_v18', 
+            key: 'webos_v23', 
             init: () => {
                 if(!localStorage.getItem(FS.key)) {
                     const systemApps = AppsInstaller();
@@ -702,7 +704,420 @@
             add('browser', { title: 'Internet', icon: '🌐', width: 800, height: 550 }, `<div style="display:flex;flex-direction:column;height:100%;"><div style="padding:8px;background:#333;display:flex;gap:8px;"><input id="u-__PID__" value="https://ko.m.wikipedia.org" style="flex-grow:1;background:#222;color:white;border:none;padding:5px;border-radius:4px;"><button onclick="document.getElementById('f-__PID__').src=document.getElementById('u-__PID__').value" style="background:#007acc;color:white;border:none;padding:5px 10px;border-radius:4px;cursor:pointer;">Go</button></div><iframe id="f-__PID__" src="https://ko.m.wikipedia.org" style="flex-grow:1;border:none;background:white;"></iframe></div>`, ``);
             add('2048', { title: '2048', icon: '🎮', width: 360, height: 480, bg: '#202020' }, `<style>.g2048-container{display:flex;flex-direction:column;height:100%;padding:20px;align-items:center;user-select:none;outline:none;}.g2048-header{display:flex;justify-content:space-between;width:100%;margin-bottom:15px;align-items:center;}.g2048-score-box{background:#bbada0;color:#eee4da;padding:5px 15px;border-radius:6px;font-weight:bold;text-align:center;}.g2048-score-label{font-size:11px;color:#eee4da99;display:block;}.g2048-grid{display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(4,1fr);gap:10px;background:#bbada0;padding:10px;border-radius:6px;width:280px;height:280px;box-sizing:border-box;position:relative;}.g2048-cell{background:#cdc1b4;border-radius:3px;width:100%;height:100%;display:flex;justify-content:center;align-items:center;font-size:24px;font-weight:bold;color:#776e65;transition:0.1s;}.t-2{background:#eee4da;}.t-4{background:#ede0c8;}.t-8{background:#f2b179;color:#f9f6f2;}.t-16{background:#f59563;color:#f9f6f2;}.t-32{background:#f67c5f;color:#f9f6f2;}.t-64{background:#f65e3b;color:#f9f6f2;}.t-128{background:#edcf72;color:#f9f6f2;font-size:20px;}.t-256{background:#edcc61;color:#f9f6f2;font-size:20px;}.t-512{background:#edc850;color:#f9f6f2;font-size:20px;}.t-1024{background:#edc53f;color:#f9f6f2;font-size:16px;}.t-2048{background:#edc22e;color:#f9f6f2;font-size:16px;}.g2048-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(238,228,218,0.73);display:none;flex-direction:column;align-items:center;justify-content:center;border-radius:6px;z-index:10;color:#776e65;font-weight:bold;font-size:30px;}.g2048-btn{margin-top:10px;background:#8f7a66;color:#f9f6f2;border:none;padding:10px 20px;border-radius:3px;font-size:16px;cursor:pointer;}.g2048-btn:hover{background:#776e65;}</style><div id="game-__PID__" class="g2048-container" tabindex="0"><div class="g2048-header"><div style="font-size:30px;font-weight:bold;color:#776e65;background:#eee4da;padding:0 10px;border-radius:4px;">2048</div><div class="g2048-score-box"><span class="g2048-score-label">SCORE</span><span id="score-__PID__">0</span></div></div><div class="g2048-grid" id="grid-__PID__"><div class="g2048-overlay" id="over-__PID__"><span id="msg-__PID__">Game Over!</span><button class="g2048-btn" onclick="window['rst___PID__']()">Try Again</button></div></div><div style="margin-top:15px;color:#888;font-size:12px;">Use Arrow Keys or WASD</div></div>`,`const gridDiv=document.getElementById('grid-'+pid);const scoreSpan=document.getElementById('score-'+pid);const overlay=document.getElementById('over-'+pid);const msg=document.getElementById('msg-'+pid);const container=document.getElementById('game-'+pid);let board=[];let score=0;let size=4;function init(){board=Array(size*size).fill(0);score=0;scoreSpan.innerText='0';overlay.style.display='none';const ov=overlay.outerHTML;gridDiv.innerHTML='';for(let i=0;i<16;i++){let c=document.createElement('div');c.className='g2048-cell';c.id='c-'+pid+'-'+i;gridDiv.appendChild(c);}gridDiv.insertAdjacentHTML('beforeend',ov);const newOver=document.getElementById('over-'+pid);const newBtn=newOver.querySelector('button');newBtn.onclick=window['rst_'+pid];addRandom();addRandom();draw();container.focus();}function draw(){for(let i=0;i<16;i++){const cell=document.getElementById('c-'+pid+'-'+i);const val=board[i];cell.innerText=val===0?'':val;cell.className='g2048-cell'+(val>0?' t-'+val:'');}scoreSpan.innerText=score;document.getElementById('over-'+pid).style.display='none';}function addRandom(){let empty=[];board.forEach((v,i)=>{if(v===0)empty.push(i);});if(empty.length===0)return;const idx=empty[Math.floor(Math.random()*empty.length)];board[idx]=Math.random()<0.9?2:4;}function operate(row){let arr=row.filter(val=>val);for(let i=0;i<arr.length-1;i++){if(arr[i]===arr[i+1]){arr[i]*=2;score+=arr[i];arr.splice(i+1,1);}}while(arr.length<size)arr.push(0);return arr;}function move(dir){let oldBoardStr=JSON.stringify(board);if(dir==='Left'){for(let i=0;i<4;i++){let row=[board[i*4],board[i*4+1],board[i*4+2],board[i*4+3]];let newRow=operate(row);for(let j=0;j<4;j++)board[i*4+j]=newRow[j];}}else if(dir==='Right'){for(let i=0;i<4;i++){let row=[board[i*4],board[i*4+1],board[i*4+2],board[i*4+3]];row.reverse();let newRow=operate(row);newRow.reverse();for(let j=0;j<4;j++)board[i*4+j]=newRow[j];}}else if(dir==='Up'){for(let i=0;i<4;i++){let col=[board[i],board[i+4],board[i+8],board[i+12]];let newCol=operate(col);for(let j=0;j<4;j++)board[i+j*4]=newCol[j];}}else if(dir==='Down'){for(let i=0;i<4;i++){let col=[board[i],board[i+4],board[i+8],board[i+12]];col.reverse();let newCol=operate(col);newCol.reverse();for(let j=0;j<4;j++)board[i+j*4]=newCol[j];}}if(JSON.stringify(board)!==oldBoardStr){addRandom();draw();checkGameOver();}}function checkGameOver(){if(!board.includes(0)){for(let i=0;i<16;i++){const val=board[i];if(i%4!==3&&val===board[i+1])return;if(i<12&&val===board[i+4])return;}document.getElementById('msg-'+pid).innerText="Game Over";document.getElementById('over-'+pid).style.display='flex';}}window['rst_'+pid]=init;container.onkeydown=(e)=>{if(['ArrowLeft','a'].includes(e.key))move('Left');else if(['ArrowRight','d'].includes(e.key))move('Right');else if(['ArrowUp','w'].includes(e.key))move('Up');else if(['ArrowDown','s'].includes(e.key))move('Down');};init();`);
             add('taskmgr', { title: 'Task Manager', icon: '📊', width: 450, height: 500, bg:'#202020' }, `<style>.tm-layout { display: flex; flex-direction: column; height: 100%; font-size: 12px; color: #ddd; } .tm-toolbar { padding: 8px; background: #333; border-bottom: 1px solid #444; display: flex; justify-content: flex-end; gap: 10px; } .tm-btn { background: #444; border: 1px solid #555; color: white; padding: 4px 12px; cursor: pointer; border-radius: 3px; } .tm-btn:hover { background: #555; } .tm-btn-kill { background: #8b0000; border-color: #a00000; } .tm-btn-kill:hover { background: #a00000; } .tm-btn:disabled { opacity: 0.5; cursor: not-allowed; } .tm-header { display: flex; background: #2d2d2d; padding: 5px 10px; font-weight: bold; color: #aaa; border-bottom: 1px solid #444; } .tm-row { display: flex; padding: 5px 10px; cursor: pointer; border-bottom: 1px solid #2a2a2a; align-items: center; } .tm-row:hover { background: #2a2d2e; } .tm-row.selected { background: #007acc !important; color: white; } .col-pid { width: 60px; flex-shrink: 0; } .col-name { flex-grow: 1; font-weight: 500; display:flex; align-items:center; gap:6px;} .col-mem { width: 60px; text-align: right; } .col-cpu { width: 50px; text-align: right; color: #4ec9b0; } .tm-list { flex-grow: 1; overflow-y: auto; background: #1e1e1e; } .tm-footer { padding: 6px 10px; background: #252526; border-top: 1px solid #333; text-align: right; color: #888; font-size: 11px; }</style><div class="tm-layout"><div class="tm-toolbar"><button class="tm-btn" onclick="window['ref___PID__']()">Refresh</button><button id="btn-kill-__PID__" class="tm-btn tm-btn-kill" onclick="window['kill___PID__']()" disabled>End Task</button></div><div class="tm-header"><div class="col-name">Process Name</div><div class="col-pid">PID</div><div class="col-cpu">CPU</div><div class="col-mem">Mem</div></div><div id="list-__PID__" class="tm-list"></div><div class="tm-footer" id="stat-__PID__">Processes: 0</div></div>`, `let selectedPid = null; const list = document.getElementById('list-'+pid); const stat = document.getElementById('stat-'+pid); const killBtn = document.getElementById('btn-kill-'+pid); const render = () => { const scrollPos = list.scrollTop; list.innerHTML = ''; const procs = Object.entries(OS.processes); stat.innerText = 'Processes: ' + procs.length; let selectedExists = false; procs.forEach(([procId, data]) => { const row = document.createElement('div'); row.className = 'tm-row'; if(procId === selectedPid) { row.classList.add('selected'); selectedExists = true; } const cpu = (Math.random() * (procId === pid ? 1 : 5)).toFixed(1); const mem = Math.floor(Math.random() * 50 + 20) + ' MB'; let icon = '⚙️'; if(data.title) { if(data.title.includes('Terminal')) icon='💻'; else if(data.title.includes('Editor') || data.title.includes('Studio')) icon='📝'; else if(data.title.includes('Explorer')) icon='📁'; else if(data.title.includes('Internet')) icon='🌐'; else if(data.title.includes('2048')) icon='🎮'; else if(data.title.includes('Calc')) icon='🧮'; else if(data.title.includes('Task')) icon='📊'; } row.innerHTML = \`<div class="col-name"><span>\${icon}</span> \${data.title || 'Unknown'}</div><div class="col-pid">\${procId.replace('proc_','')}</div><div class="col-cpu">\${cpu}%</div><div class="col-mem">\${mem}</div>\`; row.onclick = () => { document.querySelectorAll('#list-'+pid+' .tm-row').forEach(r => r.classList.remove('selected')); row.classList.add('selected'); selectedPid = procId; killBtn.disabled = false; }; list.appendChild(row); }); if(!selectedExists) { selectedPid = null; killBtn.disabled = true; } list.scrollTop = scrollPos; }; window['ref_'+pid] = render; window['kill_'+pid] = () => { if(selectedPid && OS.processes[selectedPid]) { OS.kill(selectedPid); render(); } }; setInterval(render, 1500); render();`);
+            
+            // --------------------------------------------------------------------------------
+            // [FIXED v3] Slides Pro (Bug Fixes & Logic Update)
+            // --------------------------------------------------------------------------------
+            add('slides', { title: 'Slides Pro', icon: '📽️', width: 1000, height: 650, bg: '#f3f2f1' },
+                `<style>
+                    .ppt-root { display: flex; flex-direction: column; height: 100%; user-select: none; font-family: 'Segoe UI', sans-serif; color: #333; }
+                    
+                    /* Toolbar */
+                    .ppt-toolbar { height: 46px; background: #c43e1c; display: flex; align-items: center; padding: 0 12px; gap: 8px; border-bottom: 1px solid #a33316; color: white; box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 10; }
+                    .ppt-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); color: white; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 6px; transition: 0.1s; height: 30px; }
+                    .ppt-btn:hover { background: rgba(255,255,255,0.25); transform: translateY(-1px); }
+                    .ppt-btn:active { transform: translateY(0); }
+                    .ppt-sep { width: 1px; height: 20px; background: rgba(255,255,255,0.3); margin: 0 4px; }
 
+                    /* Layout */
+                    .ppt-body { flex-grow: 1; display: flex; overflow: hidden; }
+                    .ppt-sidebar { width: 160px; background: #e8e8e8; border-right: 1px solid #ccc; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px; flex-shrink: 0; }
+                    .ppt-thumb { width: 100%; aspect-ratio: 16/9; background: white; border: 2px solid transparent; box-shadow: 0 2px 5px rgba(0,0,0,0.05); cursor: pointer; position: relative; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #ccc; overflow: hidden; transition: 0.2s; border-radius: 4px; }
+                    .ppt-thumb:hover { transform: scale(1.02); }
+                    .ppt-thumb.active { border-color: #c43e1c; outline: 2px solid rgba(196, 62, 28, 0.3); }
+                    .ppt-thumb-num { position: absolute; top: 4px; left: 6px; font-size: 11px; color: #555; font-weight: bold; z-index:2; background: rgba(255,255,255,0.8); padding: 0 4px; border-radius: 2px;}
+
+                    .ppt-stage { flex-grow: 1; background: #d2d0ce; display: flex; align-items: center; justify-content: center; overflow: auto; position: relative; }
+                    /* Canvas: 16:9 Aspect Ratio Base */
+                    .ppt-canvas { width: 960px; height: 540px; background: white; box-shadow: 0 0 20px rgba(0,0,0,0.15); position: relative; overflow: hidden; flex-shrink: 0; transform: scale(0.85); transform-origin: center; transition: background 0.2s; }
+                    
+                    .ppt-props { width: 240px; background: #f9f9f9; border-left: 1px solid #d2d0ce; display: flex; flex-direction: column; padding: 15px; gap: 15px; font-size: 12px; overflow-y: auto; }
+                    .ppt-prop-group { display: flex; flex-direction: column; gap: 8px; background: white; padding: 12px; border-radius: 6px; border: 1px solid #e0e0e0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+                    .ppt-lbl { color: #666; font-weight: 600; margin-bottom: 2px; display: block; }
+                    .ppt-inp { width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; outline: none; box-sizing: border-box; }
+                    .ppt-inp:focus { border-color: #c43e1c; }
+                    .ppt-row { display: flex; gap: 8px; }
+                    .ppt-color-inp { width: 30px; height: 30px; padding: 0; border: none; cursor: pointer; border-radius: 50%; overflow: hidden; }
+
+                    /* Elements */
+                    .ppt-el { position: absolute; cursor: grab; border: 1px solid transparent; display: flex; padding: 0; box-sizing: border-box; user-select: none; }
+                    .ppt-el:hover { outline: 1px dashed #999; }
+                    .ppt-el.selected { outline: 2px solid #c43e1c; cursor: move; z-index: 1000; }
+                    .ppt-el:active { cursor: grabbing; }
+                    
+                    .ppt-content { width: 100%; height: 100%; overflow: hidden; pointer-events: none; word-wrap: break-word; white-space: pre-wrap; }
+                    .ppt-el.editing .ppt-content { pointer-events: auto; user-select: text; cursor: text; outline: none; background: rgba(255,255,255,0.1); }
+                    
+                    /* Resize Handles */
+                    .ppt-handle { position: absolute; width: 8px; height: 8px; background: white; border: 1px solid #c43e1c; z-index: 1001; display: none; border-radius: 50%; }
+                    .ppt-el.selected .ppt-handle { display: block; }
+                    .h-nw { top: -5px; left: -5px; cursor: nw-resize; }
+                    .h-n  { top: -5px; left: 50%; transform: translateX(-50%); cursor: n-resize; }
+                    .h-ne { top: -5px; right: -5px; cursor: ne-resize; }
+                    .h-e  { top: 50%; right: -5px; transform: translateY(-50%); cursor: e-resize; }
+                    .h-se { bottom: -5px; right: -5px; cursor: se-resize; }
+                    .h-s  { bottom: -5px; left: 50%; transform: translateX(-50%); cursor: s-resize; }
+                    .h-sw { bottom: -5px; left: -5px; cursor: sw-resize; }
+                    .h-w  { top: 50%; left: -5px; transform: translateY(-50%); cursor: w-resize; }
+
+                    /* Presentation Mode */
+                    .ppt-pres-mode { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 9999; display: none; align-items: center; justify-content: center; }
+                    .ppt-pres-content { width: 100%; height: 100%; background: white; position: relative; overflow: hidden; }
+                    .ppt-pres-ctrl { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 10px 20px; border-radius: 30px; display: flex; gap: 15px; opacity: 0; transition: 0.3s; border: 1px solid rgba(255,255,255,0.2); }
+                    .ppt-pres-mode:hover .ppt-pres-ctrl { opacity: 1; }
+                </style>
+
+                <div class="ppt-root" onclick="window['pptGlobalClick___PID__'](event)" onkeydown="window['pptKey___PID__'](event)" tabindex="0" id="root-__PID__">
+                    <div class="ppt-toolbar">
+                        <span style="font-weight:700; margin-right:5px; font-size:14px;">Slides Pro</span>
+                        <div class="ppt-sep"></div>
+                        <button class="ppt-btn" onclick="window['pptCmd___PID__']('newSlide')">📄 New Slide</button>
+                        <div class="ppt-sep"></div>
+                        <button class="ppt-btn" onclick="window['pptCmd___PID__']('addText')">T Text</button>
+                        <button class="ppt-btn" onclick="window['pptCmd___PID__']('addRect')">⬜ Box</button>
+                        <button class="ppt-btn" onclick="window['pptCmd___PID__']('addCircle')">🔴 Circle</button>
+                        <button class="ppt-btn" onclick="window['pptCmd___PID__']('addImg')">🖼️ Image</button>
+                        <div class="ppt-sep"></div>
+                        <button class="ppt-btn" onclick="window['pptCmd___PID__']('bringFront')">⬆ Front</button>
+                        <button class="ppt-btn" onclick="window['pptCmd___PID__']('sendBack')">⬇ Back</button>
+                        <div class="ppt-sep"></div>
+                        <button class="ppt-btn" style="background:#a33316" onclick="window['pptCmd___PID__']('delEl')">🗑️ Del</button>
+                        <div style="flex-grow:1"></div>
+                        <button class="ppt-btn" style="background:#0078d4; border-color:transparent; font-weight:bold;" onclick="window['pptCmd___PID__']('play')">▶ Present</button>
+                    </div>
+                    
+                    <div class="ppt-body">
+                        <div class="ppt-sidebar" id="sidebar-__PID__"></div>
+                        <div class="ppt-stage" id="stage-__PID__">
+                            <div class="ppt-canvas" id="canvas-__PID__"></div>
+                        </div>
+                        <div class="ppt-props" id="props-__PID__"></div>
+                    </div>
+
+                    <div id="pres-__PID__" class="ppt-pres-mode">
+                        <div id="pres-c-__PID__" class="ppt-pres-content" onclick="window['pptPresNext___PID__']()"></div>
+                        <div class="ppt-pres-ctrl">
+                            <button class="ppt-btn" onclick="window['pptPresExit___PID__']()">✖ Exit</button>
+                            <button class="ppt-btn" onclick="event.stopPropagation(); window['pptPresNext___PID__']()">Next ➡</button>
+                        </div>
+                    </div>
+                </div>`,
+                `
+                // --- Variables ---
+                const root = document.getElementById('root-'+pid);
+                const canvas = document.getElementById('canvas-'+pid);
+                const sidebar = document.getElementById('sidebar-'+pid);
+                const propsPanel = document.getElementById('props-'+pid);
+                const presModal = document.getElementById('pres-'+pid);
+                const presContent = document.getElementById('pres-c-'+pid);
+                
+                // State
+                let slides = [{ id: 1, elements: [
+                    { type: 'text', id: 'el_1', x: 80, y: 180, w: 800, h: 100, content: 'WebOS Presentation', bg: 'transparent', color: '#c43e1c', fontSize: 64, fontWeight: 'bold', align: 'center' },
+                    { type: 'rect', id: 'el_2', x: 430, y: 300, w: 100, h: 5, bg: '#333', color: 'transparent', fontSize:0 },
+                    { type: 'text', id: 'el_3', x: 280, y: 330, w: 400, h: 40, content: 'Double-click to edit text', bg: 'transparent', color: '#666', fontSize: 20, fontWeight: 'normal', align: 'center' }
+                ]}];
+                let currentSlideIdx = 0;
+                let selectedElId = null;
+                let elCounter = 10;
+                let isEditingText = false;
+
+                // --- Helper: Create Element DOM ---
+                const createElDOM = (el) => {
+                    const div = document.createElement('div');
+                    div.id = el.id;
+                    div.className = 'ppt-el';
+                    updateElStyle(div, el);
+
+                    // Inner Content
+                    const inner = document.createElement('div');
+                    inner.className = 'ppt-content';
+                    inner.style.display = 'flex';
+                    inner.style.width = '100%'; inner.style.height = '100%';
+                    
+                    if(el.type === 'image') {
+                        const img = document.createElement('img');
+                        img.src = el.src;
+                        // [FIXED] Removed object-fit to allow squash/stretch
+                        img.style.width='100%'; img.style.height='100%'; img.style.display='block'; img.draggable=false;
+                        inner.appendChild(img);
+                    } else {
+                        inner.innerText = el.content || '';
+                    }
+                    div.appendChild(inner);
+
+                    // Handles
+                    ['nw','n','ne','e','se','s','sw','w'].forEach(h => {
+                        const hd = document.createElement('div');
+                        hd.className = 'ppt-handle h-'+h;
+                        hd.onmousedown = (e) => { e.preventDefault(); e.stopPropagation(); startResize(e, el, h); };
+                        div.appendChild(hd);
+                    });
+
+                    // Event Listeners
+                    div.onmousedown = (e) => {
+                        if(isEditingText) return;
+                        e.preventDefault(); e.stopPropagation();
+                        selectEl(el.id);
+                        startMove(e, el);
+                    };
+                    div.ondblclick = (e) => {
+                        if(el.type === 'text' || el.type === 'rect' || el.type === 'circle') {
+                            isEditingText = true;
+                            div.classList.add('editing');
+                            div.classList.remove('selected');
+                            inner.contentEditable = true;
+                            inner.focus();
+                            const onBlur = () => {
+                                el.content = inner.innerText;
+                                isEditingText = false;
+                                inner.contentEditable = false;
+                                div.classList.remove('editing');
+                                selectEl(el.id);
+                                renderProps();
+                            };
+                            inner.onblur = onBlur;
+                            inner.onkeydown = (ev) => { if(ev.key==='Escape') { inner.blur(); } ev.stopPropagation(); };
+                        }
+                    };
+
+                    return div;
+                };
+
+                const updateElStyle = (dom, el) => {
+                    if(!dom) return;
+                    dom.style.left = el.x + 'px'; dom.style.top = el.y + 'px';
+                    dom.style.width = el.w + 'px'; dom.style.height = el.h + 'px';
+                    dom.style.backgroundColor = el.bg || 'transparent';
+                    dom.style.color = el.color || '#333';
+                    dom.style.fontSize = (el.fontSize || 14) + 'px';
+                    dom.style.fontWeight = el.fontWeight || 'normal';
+                    dom.style.borderRadius = el.type === 'circle' ? '50%' : '0';
+                    dom.style.zIndex = el.zIndex || 1;
+                    
+                    const inner = dom.querySelector('.ppt-content');
+                    if(inner) {
+                        inner.style.alignItems = 'center'; 
+                        // [FIXED] Better alignment logic
+                        inner.style.justifyContent = el.align === 'center' ? 'center' : (el.align === 'right' ? 'flex-end' : 'flex-start');
+                        inner.style.textAlign = el.align || 'left';
+                    }
+                };
+
+                // --- Rendering ---
+                const renderSidebar = () => {
+                    sidebar.innerHTML = '';
+                    slides.forEach((slide, idx) => {
+                        const div = document.createElement('div');
+                        div.className = 'ppt-thumb' + (idx === currentSlideIdx ? ' active' : '');
+                        div.innerHTML = '<span class="ppt-thumb-num">' + (idx + 1) + '</span><span style="font-size:24px">📄</span>';
+                        div.onclick = (e) => { e.stopPropagation(); currentSlideIdx = idx; selectedElId = null; renderCanvas(); renderSidebar(); renderProps(); };
+                        sidebar.appendChild(div);
+                    });
+                };
+
+                const renderCanvas = () => {
+                    canvas.innerHTML = '';
+                    const slide = slides[currentSlideIdx];
+                    slide.elements.sort((a,b) => (a.zIndex||0) - (b.zIndex||0)).forEach(el => {
+                        canvas.appendChild(createElDOM(el));
+                    });
+                    if(selectedElId) {
+                        const elDOM = document.getElementById(selectedElId);
+                        if(elDOM) elDOM.classList.add('selected');
+                    }
+                };
+
+                const selectEl = (id) => {
+                    if(selectedElId && selectedElId !== id) {
+                        const prev = document.getElementById(selectedElId);
+                        if(prev) prev.classList.remove('selected');
+                    }
+                    selectedElId = id;
+                    if(id) {
+                        const next = document.getElementById(id);
+                        if(next) next.classList.add('selected');
+                    }
+                    renderProps();
+                };
+
+                const renderProps = () => {
+                    if(!selectedElId) { propsPanel.innerHTML = '<div style="text-align:center; color:#999; margin-top:50px;">Select an element<br>to edit properties</div>'; return; }
+                    const el = slides[currentSlideIdx].elements.find(e => e.id === selectedElId);
+                    if(!el) return;
+                    
+                    // [FIXED] Removed Geometry Inputs
+                    
+                    let html = '<div class="ppt-prop-group"><span class="ppt-lbl">Style</span><div class="ppt-row" style="align-items:center;">BG: <input type="color" class="ppt-color-inp" value="' + (el.bg||'#ffffff') + '" oninput="window[\\'pptUpd_\\'+pid](\\'bg\\',this.value)"> Color: <input type="color" class="ppt-color-inp" value="' + (el.color||'#000000') + '" oninput="window[\\'pptUpd_\\'+pid](\\'color\\',this.value)"></div></div>';
+                    
+                    if(el.type !== 'image') {
+                        html += '<div class="ppt-prop-group"><span class="ppt-lbl">Typography</span>Size: <input class="ppt-inp" type="number" value="' + el.fontSize + '" oninput="window[\\'pptUpd_\\'+pid](\\'fontSize\\',this.value)"><br><br>Align: <select class="ppt-inp" onchange="window[\\'pptUpd_\\'+pid](\\'align\\',this.value)"><option value="left" '+(el.align==='left'?'selected':'')+'>Left</option><option value="center" '+(el.align==='center'?'selected':'')+'>Center</option><option value="right" '+(el.align==='right'?'selected':'')+'>Right</option></select></div>';
+                    }
+
+                    propsPanel.innerHTML = html;
+                };
+
+                // --- Interactions ---
+                const startMove = (e, el) => {
+                    const dom = document.getElementById(el.id);
+                    const startX = e.clientX, startY = e.clientY;
+                    const origX = el.x, origY = el.y;
+                    
+                    const onMove = (ev) => {
+                        el.x = origX + (ev.clientX - startX);
+                        el.y = origY + (ev.clientY - startY);
+                        updateElStyle(dom, el);
+                    };
+                    const onUp = () => {
+                        document.removeEventListener('mousemove', onMove);
+                        document.removeEventListener('mouseup', onUp);
+                        renderProps();
+                    };
+                    document.addEventListener('mousemove', onMove);
+                    document.addEventListener('mouseup', onUp);
+                };
+
+                const startResize = (e, el, handle) => {
+                    const dom = document.getElementById(el.id);
+                    const startX = e.clientX, startY = e.clientY;
+                    const origX = el.x, origY = el.y, origW = el.w, origH = el.h;
+
+                    const onMove = (ev) => {
+                        const dx = ev.clientX - startX;
+                        const dy = ev.clientY - startY;
+                        let nx=origX, ny=origY, nw=origW, nh=origH;
+
+                        if(handle.includes('e')) nw = Math.max(10, origW + dx);
+                        if(handle.includes('s')) nh = Math.max(10, origH + dy);
+                        if(handle.includes('w')) { nw = Math.max(10, origW - dx); nx = origX + (origW - nw); }
+                        if(handle.includes('n')) { nh = Math.max(10, origH - dy); ny = origY + (origH - nh); }
+                        
+                        el.x=nx; el.y=ny; el.w=nw; el.h=nh;
+                        updateElStyle(dom, el);
+                    };
+                    const onUp = () => {
+                        document.removeEventListener('mousemove', onMove);
+                        document.removeEventListener('mouseup', onUp);
+                        renderProps();
+                    };
+                    document.addEventListener('mousemove', onMove);
+                    document.addEventListener('mouseup', onUp);
+                };
+
+                // --- Global Events ---
+                window['pptGlobalClick_'+pid] = (e) => {
+                    if(e.target.id === 'stage-'+pid || e.target.id === 'canvas-'+pid) {
+                        selectEl(null);
+                    }
+                };
+                
+                window['pptKey_'+pid] = (e) => {
+                    if(isEditingText) return;
+                    if(e.key === 'Delete' || e.key === 'Backspace') window['pptCmd_'+pid]('delEl');
+                };
+
+                window['pptUpd_'+pid] = (key, val) => {
+                    if(!selectedElId) return;
+                    const el = slides[currentSlideIdx].elements.find(e => e.id === selectedElId);
+                    if(el) {
+                        // [FIXED] Ensure proper type conversion for numbers, keep strings for others
+                        if(['x','y','w','h','fontSize'].includes(key)) val = parseInt(val) || 0;
+                        el[key] = val;
+                        updateElStyle(document.getElementById(selectedElId), el);
+                    }
+                };
+
+                window['pptCmd_'+pid] = (cmd) => {
+                    const s = slides[currentSlideIdx];
+                    if(cmd === 'newSlide') { 
+                        slides.push({ id: Date.now(), elements: [] }); 
+                        currentSlideIdx = slides.length - 1; selectEl(null); 
+                        renderSidebar(); renderCanvas(); 
+                    }
+                    else if(cmd === 'addText') { 
+                        const id='el_'+(++elCounter); 
+                        s.elements.push({ type: 'text', id, x: 100, y: 100, w: 300, h: 50, content: 'Text Box', bg: 'transparent', color: '#333', fontSize: 24, zIndex: s.elements.length+1 }); 
+                        renderCanvas(); selectEl(id); 
+                    }
+                    else if(cmd === 'addRect') { 
+                        const id='el_'+(++elCounter); 
+                        s.elements.push({ type: 'rect', id, x: 150, y: 150, w: 150, h: 150, bg: '#0078d4', zIndex: s.elements.length+1 }); 
+                        renderCanvas(); selectEl(id); 
+                    }
+                    else if(cmd === 'addCircle') { 
+                        const id='el_'+(++elCounter); 
+                        s.elements.push({ type: 'circle', id, x: 200, y: 200, w: 150, h: 150, bg: '#d13438', zIndex: s.elements.length+1 }); 
+                        renderCanvas(); selectEl(id); 
+                    }
+                    else if(cmd === 'addImg') {
+                        const url = prompt('Image URL:', 'https://cdn-icons-png.flaticon.com/512/1048/1048877.png');
+                        if(url) {
+                             const id='el_'+(++elCounter); 
+                             s.elements.push({ type: 'image', id, src: url, x: 100, y: 100, w: 200, h: 200, zIndex: s.elements.length+1 });
+                             renderCanvas(); selectEl(id);
+                        }
+                    }
+                    else if(cmd === 'delEl') { 
+                        if(selectedElId) { 
+                            s.elements = s.elements.filter(e => e.id !== selectedElId); 
+                            selectEl(null); renderCanvas(); 
+                        } else if(slides.length > 1 && confirm('Delete this slide?')) {
+                            slides.splice(currentSlideIdx, 1);
+                            currentSlideIdx = Math.max(0, currentSlideIdx - 1);
+                            renderSidebar(); renderCanvas();
+                        }
+                    }
+                    else if(cmd === 'bringFront' && selectedElId) {
+                        const el = s.elements.find(e => e.id === selectedElId);
+                        el.zIndex = (Math.max(...s.elements.map(e=>e.zIndex||0)) || 0) + 1;
+                        renderCanvas();
+                    }
+                    else if(cmd === 'sendBack' && selectedElId) {
+                         const el = s.elements.find(e => e.id === selectedElId);
+                         el.zIndex = (Math.min(...s.elements.map(e=>e.zIndex||0)) || 0) - 1;
+                         renderCanvas();
+                    }
+                    else if(cmd === 'play') { 
+                        presModal.style.display = 'flex'; presIdx = currentSlideIdx; renderPres(); 
+                    }
+                };
+
+                // --- Presentation ---
+                let presIdx = 0;
+                const renderPres = () => {
+                    presContent.innerHTML = ''; 
+                    if(presIdx < 0 || presIdx >= slides.length) { window['pptPresExit_'+pid](); return; }
+                    const slide = slides[presIdx]; 
+                    const scale = Math.min(window.innerWidth/960, window.innerHeight/540) * 0.9;
+                    
+                    const wrapper = document.createElement('div'); 
+                    wrapper.style.cssText = 'width:960px; height:540px; position:absolute; top:50%; left:50%; transform:translate(-50%, -50%) scale(' + scale + '); background:white; box-shadow:0 0 50px rgba(0,0,0,0.8); overflow:hidden;';
+                    
+                    slide.elements.sort((a,b)=>(a.zIndex||0)-(b.zIndex||0)).forEach(el => {
+                        const d = document.createElement('div');
+                        d.style.cssText = 'position:absolute; left:'+el.x+'px; top:'+el.y+'px; width:'+el.w+'px; height:'+el.h+'px; background:'+(el.bg||'transparent')+'; color:'+(el.color||'#333')+'; font-size:'+(el.fontSize||14)+'px; font-weight:'+el.fontWeight+'; display:flex; z-index:'+el.zIndex+';';
+                        if(el.type==='circle') d.style.borderRadius='50%';
+                        
+                        const inr = document.createElement('div');
+                        inr.style.cssText = 'width:100%; height:100%; display:flex; align-items:center;';
+                        inr.style.justifyContent = el.align === 'center' ? 'center' : (el.align === 'right' ? 'flex-end' : 'flex-start');
+                        inr.style.textAlign = el.align || 'left';
+                        
+                        if(el.type==='image') inr.innerHTML = '<img src="' + el.src + '" style="width:100%; height:100%; display:block;">';
+                        else inr.innerText = el.content || '';
+                        
+                        d.appendChild(inr);
+                        wrapper.appendChild(d);
+                    });
+                    presContent.appendChild(wrapper);
+                };
+                window['pptPresNext_'+pid] = () => { presIdx++; renderPres(); };
+                window['pptPresExit_'+pid] = () => { presModal.style.display='none'; };
+
+                renderSidebar(); renderCanvas(); selectEl(null);
+                root.focus();
+                `
+            );
             return apps;
         }
 
