@@ -2,7 +2,7 @@
 
 ![MyCustomWebOS 화면 캡처](./image.png)
 
-[MyCustomWebOS — Live demo](https://my-custom-web-os.vercel.app/)
+[MyCustomWebOS — Live demo](https://yabsed.github.io/MyCustomWebOS/)
 
 구현한 것
 - `localStorage`를 이용한 간단한 파일 시스템
