@@ -1,0 +1,23 @@
+name: deploy-prod
+
+on:
+  workflow_dispatch: # 이건 수동 버튼으로만 실행됨
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to S3 (Prod)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ap-northeast-2
+        run: |
+          # 님 버킷 이름(webos-prod-yabsed)을 미리 넣어뒀습니다!
+          aws s3 sync . s3://webos-prod-yabsed --delete --exclude ".git/*" --exclude ".github/*"
+          
+          # [중요!] 아래 "CLOUDFRONT_ID_HERE"를 님의 Prod용 CloudFront ID(예: E33PO...)로 꼭 바꿔주세요!
+          aws cloudfront create-invalidation --distribution-id E14GAJ2C937NIH --paths "/*"
